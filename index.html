@@ -1,33 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="google-site-verification" content="prCwY-ZyHtedOflIogF4lPN-97TZeNZN3DBsoec54_I" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Mystery Door Game - Play Online</title>
+  <meta name="description" content="Play the free Mystery Door web game! Pick between mystery doors to find hidden treasure or face the ghost.">
+  <meta name="keywords" content="Mystery Door Game, Python game, web game, play online">
+  
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <h1>🚪 Mystery Door Game 🚪</h1>
-  <p id="instruction">Choose a door... if you dare!</p>
+  <p id="instruction">Choose a difficulty and pick a door!</p>
+
+  <!-- Difficulty Selector Buttons -->
+  <div class="difficulty-container">
+    <button class="diff-btn active" onclick="setDifficulty(3, this)">Easy (3 Doors)</button>
+    <button class="diff-btn" onclick="setDifficulty(5, this)">Medium (5 Doors)</button>
+    <button class="diff-btn" onclick="setDifficulty(10, this)">Hard (10 Doors)</button>
+  </div>
 
   <div class="score-board">
     <span>Wins: <strong id="wins">0</strong></span>
     <span>Losses: <strong id="losses">0</strong></span>
   </div>
 
-  <div class="doors-container">
-    <button class="door" onclick="chooseDoor(1)">🚪<br>Door 1</button>
-    <button class="door" onclick="chooseDoor(2)">🚪<br>Door 2</button>
-    <button class="door" onclick="chooseDoor(3)">🚪<br>Door 3</button>
-  </div>
+  <!-- Dynamic Doors -->
+  <div class="doors-container" id="doors-container"></div>
 
   <div id="result-message"></div>
 
   <button id="reset-btn" onclick="resetGame()" style="display: none;">Play Again</button>
 
   <script>
-    let winningDoor = Math.floor(Math.random() * 3) + 1;
+    let totalDoors = 3;
+    let winningDoor = 1;
     let wins = 0;
     let losses = 0;
     let gameOver = false;
+
+    // Web Audio Context for sound effects
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Play retro win sound effect
+    function playWinSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime + 0.1); // D5
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2); // A5
+      
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    // Play retro lose sound effect
+    function playLoseSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.4);
+      
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.4);
+    }
+
+    // Play door click sound effect
+    function playClickSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.08);
+      
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.08);
+    }
+
+    window.onload = function() {
+      resetGame();
+    };
+
+    function setDifficulty(numDoors, buttonElement) {
+      playClickSound();
+      totalDoors = numDoors;
+      
+      const buttons = document.querySelectorAll('.diff-btn');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      buttonElement.classList.add('active');
+
+      resetGame();
+    }
+
+    function createDoors() {
+      const container = document.getElementById('doors-container');
+      container.innerHTML = '';
+
+      for (let i = 1; i <= totalDoors; i++) {
+        const doorBtn = document.createElement('button');
+        doorBtn.className = 'door';
+        doorBtn.innerHTML = `🚪<br>Door ${i}`;
+        doorBtn.onclick = function() { chooseDoor(i); };
+        container.appendChild(doorBtn);
+      }
+    }
 
     function chooseDoor(doorNumber) {
       if (gameOver) return;
@@ -36,11 +137,13 @@
       const resetBtn = document.getElementById('reset-btn');
 
       if (doorNumber === winningDoor) {
+        playWinSound();
         resultDiv.innerHTML = `🎉 <strong>Door ${doorNumber} opens... YOU FOUND THE TREASURE!</strong>`;
         resultDiv.className = "win";
         wins++;
         document.getElementById('wins').innerText = wins;
       } else {
+        playLoseSound();
         resultDiv.innerHTML = `👻 <strong>Door ${doorNumber} opens... A ghost jumps out!</strong><br>The treasure was behind Door ${winningDoor}.`;
         resultDiv.className = "lose";
         losses++;
@@ -52,11 +155,12 @@
     }
 
     function resetGame() {
-      winningDoor = Math.floor(Math.random() * 3) + 1;
+      winningDoor = Math.floor(Math.random() * totalDoors) + 1;
       gameOver = false;
       document.getElementById('result-message').innerHTML = '';
       document.getElementById('result-message').className = '';
       document.getElementById('reset-btn').style.display = 'none';
+      createDoors();
     }
   </script>
 </body>
