@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mystery Door Web Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <h1>🚪 Mystery Door Game 🚪</h1>
+  <p id="instruction">Choose a door... if you dare!</p>
+
+  <div class="score-board">
+    <span>Wins: <strong id="wins">0</strong></span>
+    <span>Losses: <strong id="losses">0</strong></span>
+  </div>
+
+  <div class="doors-container">
+    <button class="door" onclick="chooseDoor(1)">🚪<br>Door 1</button>
+    <button class="door" onclick="chooseDoor(2)">🚪<br>Door 2</button>
+    <button class="door" onclick="chooseDoor(3)">🚪<br>Door 3</button>
+  </div>
+
+  <div id="result-message"></div>
+
+  <button id="reset-btn" onclick="resetGame()" style="display: none;">Play Again</button>
+
+  <script>
+    let winningDoor = Math.floor(Math.random() * 3) + 1;
+    let wins = 0;
+    let losses = 0;
+    let gameOver = false;
+
+    function chooseDoor(doorNumber) {
+      if (gameOver) return;
+
+      const resultDiv = document.getElementById('result-message');
+      const resetBtn = document.getElementById('reset-btn');
+
+      if (doorNumber === winningDoor) {
+        resultDiv.innerHTML = `🎉 <strong>Door ${doorNumber} opens... YOU FOUND THE TREASURE!</strong>`;
+        resultDiv.className = "win";
+        wins++;
+        document.getElementById('wins').innerText = wins;
+      } else {
+        resultDiv.innerHTML = `👻 <strong>Door ${doorNumber} opens... A ghost jumps out!</strong><br>The treasure was behind Door ${winningDoor}.`;
+        resultDiv.className = "lose";
+        losses++;
+        document.getElementById('losses').innerText = losses;
+      }
+
+      gameOver = true;
+      resetBtn.style.display = 'inline-block';
+    }
+
+    function resetGame() {
+      winningDoor = Math.floor(Math.random() * 3) + 1;
+      gameOver = false;
+      document.getElementById('result-message').innerHTML = '';
+      document.getElementById('result-message').className = '';
+      document.getElementById('reset-btn').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
