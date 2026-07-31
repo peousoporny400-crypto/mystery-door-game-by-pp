@@ -27,7 +27,7 @@
     <span>Losses: <strong id="losses">0</strong></span>
   </div>
 
-  <!-- Dynamic Doors -->
+  <!-- Dynamic Doors Layout -->
   <div class="doors-container" id="doors-container"></div>
 
   <div id="result-message"></div>
@@ -40,6 +40,15 @@
     let wins = 0;
     let losses = 0;
     let gameOver = false;
+
+    // The different things that can be behind the doors
+    const treasureEmoji = '🏆'; // Winner
+    const ghostEmoji = '👻';    // Loser
+    
+    // Funny/Strange things behind "empty" doors
+    const randomConsolationEmojis = [
+        '🧸', '🌮', '💩', '🕶️', '🦄', '🧟', '🛹', '🍕', '💩', '🦖', '🎈', '💸'
+    ];
 
     // Web Audio Context for sound effects
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -117,15 +126,54 @@
       resetGame();
     }
 
+    // Help function to get a random item that is NOT the main winning item or the ghost
+    function getRandomConsolationItem() {
+        const randomIndex = Math.floor(Math.random() * randomConsolationEmojis.length);
+        return randomConsolationEmojis[randomIndex];
+    }
+
     function createDoors() {
       const container = document.getElementById('doors-container');
       container.innerHTML = '';
 
       for (let i = 1; i <= totalDoors; i++) {
+        // Create the outer door button
         const doorBtn = document.createElement('button');
-        doorBtn.className = 'door';
-        doorBtn.innerHTML = `🚪<br>Door ${i}`;
+        doorBtn.className = 'door closed';
         doorBtn.onclick = function() { chooseDoor(i); };
+
+        // Create the container for the hidden content
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'hidden-content';
+        
+        // Decide what is behind this specific door
+        let hiddenItem = '';
+        if (i === winningDoor) {
+            hiddenItem = treasureEmoji; // Set the treasure
+            contentDiv.classList.add('is-treasure');
+        } else if (i === (winningDoor % totalDoors) + 1) { // Pick one door near winningDoor for the ghost
+            hiddenItem = ghostEmoji; // Set the ghost
+            contentDiv.classList.add('is-ghost');
+        } else {
+            hiddenItem = getRandomConsolationItem(); // Set a funny consolation item
+            contentDiv.classList.add('is-consolation');
+        }
+        
+        // Create the visual emoji element
+        const emojiP = document.createElement('p');
+        emojiP.className = 'door-emoji';
+        emojiP.innerText = hiddenItem;
+        contentDiv.appendChild(emojiP);
+        
+        // Add hidden content to the door, and door to container
+        doorBtn.appendChild(contentDiv);
+        
+        // The visible 'door number' text on top
+        const doorLabel = document.createElement('span');
+        doorLabel.className = 'door-label';
+        doorLabel.innerHTML = `Door<br>${i}`;
+        doorBtn.appendChild(doorLabel);
+        
         container.appendChild(doorBtn);
       }
     }
@@ -135,16 +183,31 @@
 
       const resultDiv = document.getElementById('result-message');
       const resetBtn = document.getElementById('reset-btn');
+      
+      const allDoors = document.querySelectorAll('.door');
+      const selectedDoor = allDoors[doorNumber - 1]; // Index is 0-based
+
+      // Reveal ONLY the selected door instantly
+      selectedDoor.classList.remove('closed');
+      selectedDoor.classList.add('open');
 
       if (doorNumber === winningDoor) {
         playWinSound();
-        resultDiv.innerHTML = `🎉 <strong>Door ${doorNumber} opens... YOU FOUND THE TREASURE!</strong>`;
+        resultDiv.innerHTML = `🏆 **Amaze-balls! You found the 🏆 treasure behind Door ${doorNumber}!**`;
         resultDiv.className = "win";
         wins++;
         document.getElementById('wins').innerText = wins;
       } else {
         playLoseSound();
-        resultDiv.innerHTML = `👻 <strong>Door ${doorNumber} opens... A ghost jumps out!</strong><br>The treasure was behind Door ${winningDoor}.`;
+        
+        // See if we opened the ghost
+        if (selectedDoor.querySelector('.hidden-content').classList.contains('is-ghost')) {
+            resultDiv.innerHTML = `👻 **EEK! You unleashed a 👻 ghost from behind Door ${doorNumber}!** <br> Treasure was behind Door ${winningDoor}.`;
+        } else {
+            const foundItem = selectedDoor.querySelector('.door-emoji').innerText;
+            resultDiv.innerHTML = `...Wait. There's just a ${foundItem} here? <br> Treasure was behind Door ${winningDoor}.`;
+        }
+        
         resultDiv.className = "lose";
         losses++;
         document.getElementById('losses').innerText = losses;
@@ -152,6 +215,14 @@
 
       gameOver = true;
       resetBtn.style.display = 'inline-block';
+      
+      // OPTIONAL: Reveal ALL remaining doors after 1.5 seconds so player sees what they missed
+      setTimeout(() => {
+          allDoors.forEach((door) => {
+              door.classList.remove('closed');
+              door.classList.add('open');
+          });
+      }, 1500);
     }
 
     function resetGame() {

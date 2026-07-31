@@ -11,42 +11,156 @@ h1 {
   margin-bottom: 10px;
 }
 
+/* Difficulty Selector Styles */
+.difficulty-container {
+  margin: 20px 0;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.diff-btn {
+  background-color: #2d2d44;
+  color: white;
+  border: 2px solid #5a3818;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.diff-btn:hover {
+  background-color: #3d3d5c;
+}
+
+.diff-btn.active {
+  background-color: #ff9800;
+  border-color: #ffffff;
+  font-weight: bold;
+  color: #000;
+}
+
 .score-board {
   font-size: 1.2rem;
   margin: 20px 0;
 }
 
 .score-board span {
-  margin: 0 15px;
+  margin: 0 10px;
   background: #2d2d44;
   padding: 8px 16px;
   border-radius: 8px;
 }
 
+/* Dynamic Doors Layout */
 .doors-container {
   display: flex;
   justify-content: center;
-  gap: 20px;
-  margin: 30px 0;
+  flex-wrap: wrap;
+  gap: 15px;
+  max-width: 800px;
+  margin: 30px auto;
 }
 
+/* General Door Styling (Base state) */
 .door {
-  background-color: #8b5a2b;
-  color: white;
-  border: 4px solid #5a3818;
-  border-radius: 12px;
-  padding: 30px 20px;
-  font-size: 1.5rem;
-  font-weight: bold;
   cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
-  width: 120px;
+  width: 100px;
+  min-height: 120px;
+  border-radius: 12px;
+  border: 4px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
-.door:hover {
-  transform: scale(1.05);
-  background-color: #a06832;
+/* --- Door CLOSED state (Normal) --- */
+.door.closed {
+  background-color: #8b5a2b; /* Brown wooden door */
+  border-color: #5a3818;
 }
+
+.door.closed:hover {
+  transform: scale(1.05) translateY(-5px);
+  background-color: #a06832;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+}
+
+.door.closed .hidden-content {
+  opacity: 0; /* Content hidden */
+  transform: scale(0.5); /* Shrunken */
+}
+
+.door.closed .door-label {
+  opacity: 1; /* Label visible */
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+
+/* --- Door OPEN state --- */
+.door.open {
+  background-color: #2d2d44; /* Dark background once open */
+  border-color: #1a1a2b;
+  cursor: default;
+}
+
+.door.open .hidden-content {
+  opacity: 1; /* Content revealed */
+  transform: scale(1); /* Full size */
+  transition: opacity 0.3s ease 0.1s, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.1s;
+}
+
+.door.open .door-label {
+  opacity: 0; /* Label vanishes */
+}
+
+/* Revealed content elements */
+.hidden-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.door-emoji {
+    font-size: 3rem; /* Huge emojis! */
+    margin: 0;
+}
+
+/* Special styling for Treasure/Ghost reveal */
+.is-treasure .door-emoji {
+    animation: treasurePop 0.5s ease 0.1s both;
+}
+
+.is-ghost .door-emoji {
+    animation: ghostFloat 2s ease-in-out infinite alternate;
+}
+
+/* --- Animations --- */
+@keyframes treasurePop {
+    0% { transform: scale(0); opacity: 0; }
+    70% { transform: scale(1.3); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes ghostFloat {
+    0% { transform: translateY(0px) rotate(0deg); opacity: 1; }
+    50% { transform: translateY(-10px) rotate(5deg); opacity: 0.8; }
+    100% { transform: translateY(0px) rotate(-5deg); opacity: 1; }
+}
+
 
 #result-message {
   font-size: 1.4rem;
@@ -54,19 +168,20 @@ h1 {
   min-height: 50px;
 }
 
-.win { color: #4caf50; }
+.win { color: #4caf50; font-weight: bold; }
 .lose { color: #ff5252; }
 
 #reset-btn {
-  background-color: #4caf50;
-  color: white;
+  background-color: #ff9800; /* Orange Play Again button */
+  color: #000;
   border: none;
   padding: 12px 24px;
   font-size: 1.1rem;
   border-radius: 6px;
   cursor: pointer;
+  font-weight: bold;
 }
 
 #reset-btn:hover {
-  background-color: #45a049;
+  background-color: #ffb74d;
 }
