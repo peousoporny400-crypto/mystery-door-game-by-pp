@@ -6,19 +6,18 @@ import re
 import os
 import random
 
-# --- Page Config & Custom Atmospheric Styling ---
-st.set_page_config(page_title="Realm of Mystery Doors", page_icon="🗝️", layout="wide")
+# --- Page Setup ---
+st.set_page_config(page_title="Mystery Doors RPG", page_icon="🚪", layout="wide")
 
 st.markdown("""
     <style>
     .stApp {
-        background-color: #0b0e14;
-        color: #d1d5db;
+        background-color: #0d1117;
+        color: #00ffcc;
     }
     .stButton>button {
-        border-radius: 8px !important;
+        border-radius: 10px !important;
         font-weight: bold !important;
-        width: 100%;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -32,263 +31,173 @@ class Player:
     @staticmethod
     def validate_username(name):
         pattern = r"^[a-zA-Z0-9_]{3,12}$"
-        return name if re.match(pattern, name) else "Hero1"
+        return name if re.match(pattern, name) else "Adventurer1"
 
 
-# --- 2. JSON Data Persistence (Lesson Requirement) ---
+# --- 2. JSON File Storage (Lesson Requirement) ---
 JSON_FILE = "save_data.json"
 
 def load_game_data():
     if os.path.exists(JSON_FILE):
-        with open(JSON_FILE, "r") as f:
-            return json.load(f)
+        try:
+            with open(JSON_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
     return []
 
-def save_game_data(username, outcome, score, achievements):
+def save_game_data(username, result, gold):
     history = load_game_data()
     history.append({
         "Username": username,
-        "Outcome": outcome,
-        "Treasure Score": int(score),
-        "Badges Earned": ", ".join(achievements) if achievements else "None"
+        "Result": result,
+        "Gold Score": int(gold)
     })
     with open(JSON_FILE, "w") as f:
         json.dump(history, f, indent=4)
 
 
-# --- 3. Audio Helper ---
-def play_sound(sound_type):
-    sounds = {
-        "fanfare": "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3",
-        "trap": "https://cdn.freesound.org/previews/145/145303_2615119-lq.mp3",
-        "dice": "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
-    }
-    if sound_type in sounds:
-        st.markdown(f'<audio autoplay hidden><source src="{sounds[sound_type]}" type="audio/mp3"></audio>', unsafe_allow_html=True)
-
-
-# --- Initialize Session State (Strictly Numbers) ---
+# --- Initialize Session States (Strict Integer Types) ---
+if 'gold' not in st.session_state:
+    st.session_state.gold = 100
 if 'hp' not in st.session_state:
     st.session_state.hp = 100
-if 'points' not in st.session_state:
-    st.session_state.points = 150
-if 'keys' not in st.session_state or type(st.session_state.keys) is str:
+if 'keys' not in st.session_state:
     st.session_state.keys = 1
-if 'potions' not in st.session_state or type(st.session_state.potions) is str:
+if 'potions' not in st.session_state:
     st.session_state.potions = 1
-if 'active_riddle' not in st.session_state:
-    st.session_state.active_riddle = None
-if 'active_mimic' not in st.session_state:
-    st.session_state.active_mimic = False
-if 'achievements' not in st.session_state:
-    st.session_state.achievements = set()
+if 'audio_to_play' not in st.session_state:
+    st.session_state.audio_to_play = None
 
 
 # --- Game Header & Top HUD ---
-st.title("🗝️ REALM OF MYSTERY DOORS")
+st.title("🚪 MYSTERY DOORS: DUNGEON QUEST ⚔️")
 
-# 🔝 Top Status Bar (Score & Stats formatted as Strings safely)
-hud_col1, hud_col2, hud_col3, hud_col4 = st.columns(4)
-hud_col1.metric("💰 Treasure Points", f"{st.session_state.points} Gold")
-hud_col2.metric("❤️ Player HP", f"{st.session_state.hp} / 100")
-hud_col3.metric("🗝️ Keys", str(st.session_state.keys))
-hud_col4.metric("🧪 Health Potions", str(st.session_state.potions))
+# Top HUD Bar
+hud1, hud2, hud3, hud4 = st.columns(4)
+hud1.metric("💰 Gold Points", f"{st.session_state.gold}")
+hud2.metric("❤️ Player Health", f"{st.session_state.hp} / 100")
+hud3.metric("🗝️ Dungeon Keys", f"{st.session_state.keys}")
+hud4.metric("🧪 Health Potions", f"{st.session_state.potions}")
 
 st.markdown("---")
 
 
-# --- Sidebar: Profile, Shop, & Mode ---
-st.sidebar.header("👤 Adventurer Profile")
-raw_name = st.sidebar.text_input("Hero Username (3-12 chars):", "Hero1")
+# --- Audio Player Trigger ---
+if st.session_state.audio_to_play:
+    st.audio(st.session_state.audio_to_play, autoplay=True)
+    st.session_state.audio_to_play = None
+
+
+# --- Sidebar: Profile & Shop ---
+st.sidebar.header("👤 Player Profile")
+raw_name = st.sidebar.text_input("Username (3-12 alphanumeric):", "Adventurer1")
 player = Player(raw_name)
-st.sidebar.write(f"Playing as: **{player.username}**")
+st.sidebar.write(f"Hero: **{player.username}**")
 
 st.sidebar.markdown("---")
-st.sidebar.header("⚙️ Game Mode")
-mode = st.sidebar.radio("Select Mode:", ["Standard Adventure", "💀 Permadeath Rogue-lite"])
+st.sidebar.header("🛒 Item Shop")
 
-st.sidebar.markdown("---")
-st.sidebar.header("🛒 Adventurer Shop")
-if st.sidebar.button("🗝️ Buy Key (50 Gold)"):
-    if st.session_state.points >= 50:
-        st.session_state.points -= 50
-        st.session_state.keys = int(st.session_state.keys) + 1
-        st.sidebar.success("Key purchased!")
+if st.sidebar.button("🗝️ Buy Key (40 Gold)"):
+    if st.session_state.gold >= 40:
+        st.session_state.gold -= 40
+        st.session_state.keys += 1
+        st.sidebar.success("Bought 1 Key!")
         st.rerun()
     else:
         st.sidebar.error("Not enough Gold!")
 
-if st.sidebar.button("🧪 Buy Potion (40 Gold)"):
-    if st.session_state.points >= 40:
-        st.session_state.points -= 40
-        st.session_state.potions = int(st.session_state.potions) + 1
-        st.sidebar.success("Potion purchased!")
+if st.sidebar.button("🧪 Buy Potion (30 Gold)"):
+    if st.session_state.gold >= 30:
+        st.session_state.gold -= 30
+        st.session_state.potions += 1
+        st.sidebar.success("Bought 1 Health Potion!")
         st.rerun()
     else:
         st.sidebar.error("Not enough Gold!")
 
-if st.sidebar.button("❤️ Use Health Potion (+30 HP)"):
-    if int(st.session_state.potions) > 0 and st.session_state.hp < 100:
-        st.session_state.potions = int(st.session_state.potions) - 1
+if st.sidebar.button("❤️ Drink Health Potion (+30 HP)"):
+    if st.session_state.potions > 0 and st.session_state.hp < 100:
+        st.session_state.potions -= 1
         st.session_state.hp = min(100, st.session_state.hp + 30)
-        st.sidebar.success("Restored +30 HP!")
+        st.sidebar.success("Healed +30 HP!")
         st.rerun()
     else:
-        st.sidebar.warning("No potions left or HP is full!")
+        st.sidebar.warning("No potions or health already full!")
 
 
-# --- Check Permadeath / Game Over ---
+# --- Game Over Check ---
 if st.session_state.hp <= 0:
-    play_sound("trap")
-    st.error("☠️ **YOU DIED!** You lost all your health on this dungeon run.")
-    st.image("https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=500&q=80", width=400)
+    st.error("☠️ **GAME OVER! You ran out of health in the dungeon.**")
+    save_game_data(player.username, "DIED", st.session_state.gold)
     
-    save_game_data(player.username, "DIED", st.session_state.points, list(st.session_state.achievements))
-    
-    if st.button("🔄 Restart Dungeon Run"):
+    if st.button("🔄 Restart Game"):
         st.session_state.hp = 100
-        st.session_state.points = 100
+        st.session_state.gold = 100
         st.session_state.keys = 1
         st.session_state.potions = 1
-        st.session_state.achievements = set()
         st.rerun()
     st.stop()
 
 
-# --- NPC Cryptic Hints ---
-npc_hints = [
-    "🧙‍♂️ Gargoyle: 'Door 1 feels surprisingly warm...'",
-    "🧙‍♂️ Gargoyle: 'I hear a mimic growling behind Cursed Door...'",
-    "🧙‍♂️ Gargoyle: 'Ancient treasures await in the Enchanted Forest!'"
-]
-st.info(random.choice(npc_hints))
+# --- Main Game: 3 Mystery Doors ---
+st.subheader("🚪 Pick a Door to Explore:")
 
+col1, col2, col3 = st.columns(3)
 
-# --- Puzzles & Mini-Games Section ---
-
-# 1. Active Riddle
-if st.session_state.active_riddle:
-    r = st.session_state.active_riddle
-    st.warning(f"📜 **THE DOOR DEMANDS AN ANSWER:** {r['riddle']}")
-    ans = st.text_input("Type your answer:").strip().lower()
-    
-    if st.button("Submit Answer"):
-        if ans == r['answer']:
-            play_sound("fanfare")
-            st.session_state.points += 150
-            st.success("✨ Correct! The magical door unlocks and awards +150 Gold!")
-            st.session_state.achievements.add("Riddle Master")
-        else:
-            play_sound("trap")
-            st.session_state.hp -= 20
-            st.error(f"❌ INCORRECT! A trap triggers! (-20 HP). The answer was: {r['answer']}")
-        
-        st.session_state.active_riddle = None
+# DOOR 1: Treasure Room
+with col1:
+    st.markdown("### 🏛️ Door 1: Gold Vault")
+    st.caption("Safe door, chance for big gold points.")
+    if st.button("Open Door 1"):
+        reward = int(np.random.choice([50, 100, 150]))
+        st.session_state.gold += reward
+        st.session_state.audio_to_play = "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3"
+        st.success(f"🎉 You found a Golden Chest! (+{reward} Gold)")
+        save_game_data(player.username, "TREASURE", st.session_state.gold)
         st.rerun()
 
-# 2. Mimic Combat Dice Roll
-if st.session_state.active_mimic:
-    st.error("👺 **A MIMIC ATTACKS YOU! Roll a D20 to fight!**")
-    st.image("https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80", width=400)
-    
-    if st.button("🎲 Roll D20 Skill Check"):
-        play_sound("dice")
-        roll = int(np.random.randint(1, 21))
-        
-        if roll >= 10:
-            play_sound("fanfare")
-            st.session_state.points += 200
-            st.success(f"⚔️ **CRITICAL HIT! (Rolled {roll})** You defeated the Mimic and collected +200 Gold!")
-            st.session_state.achievements.add("Mimic Slayer")
+# DOOR 2: Ghost Trap Door
+with col2:
+    st.markdown("### 👻 Door 2: Haunted Room")
+    st.caption("Risky! Might lose HP or find a potion.")
+    if st.button("Open Door 2"):
+        event = np.random.choice(["ghost", "potion"], p=[0.7, 0.3])
+        if event == "ghost":
+            st.session_state.hp -= 25
+            st.session_state.audio_to_play = "https://cdn.freesound.org/previews/145/145303_2615119-lq.mp3"
+            st.error("👻 A GHOST ATTACKS YOU! (-25 HP)")
+            save_game_data(player.username, "GHOST_TRAP", st.session_state.gold)
         else:
-            play_sound("trap")
-            damage = int(np.random.randint(25, 45))
-            st.session_state.hp -= damage
-            st.error(f"💥 **FAIL! (Rolled {roll})** The Mimic bites you for -{damage} HP!")
-        
-        st.session_state.active_mimic = False
+            st.session_state.potions += 1
+            st.info("🧪 You scared the ghost away and found a Health Potion!")
         st.rerun()
 
-
-# --- 🚪 Themed Doors World ---
-st.markdown("### Choose a World Door to Explore:")
-
-door_col1, door_col2, door_col3 = st.columns(3)
-
-# Door 1: Ancient Temple
-with door_col1:
-    st.markdown("#### 🏛️ Ancient Temple")
-    st.image("https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=500&q=80", use_container_width=True)
-    if st.button("Open Temple Door"):
-        event = np.random.choice(["gold", "trap", "key"], p=[0.5, 0.3, 0.2])
-        if event == "gold":
-            play_sound("fanfare")
-            st.session_state.points += 100
-            st.success("🏛️ You opened an ancient golden chest! (+100 Gold)")
-        elif event == "trap":
-            play_sound("trap")
-            st.session_state.hp -= 15
-            st.error("🐍 Poison dart trap! (-15 HP)")
-        else:
-            st.session_state.keys = int(st.session_state.keys) + 1
-            st.info("🗝️ You found an Old Brass Key!")
-        st.rerun()
-
-# Door 2: Cursed Mimic Vault (Requires Key)
-with door_col2:
-    st.markdown("#### 💀 Cursed Vault")
-    st.image("https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=500&q=80", use_container_width=True)
-    if st.button("Unlock Vault (Uses 1 Key)"):
-        if int(st.session_state.keys) > 0:
-            st.session_state.keys = int(st.session_state.keys) - 1
-            st.session_state.active_mimic = True
+# DOOR 3: Locked Boss Vault (Requires Key)
+with col3:
+    st.markdown("### 🔒 Door 3: Locked Vault")
+    st.caption("Requires 1 Key! High Risk, High Reward.")
+    if st.button("Unlock Door 3 (1 Key)"):
+        if st.session_state.keys > 0:
+            st.session_state.keys -= 1
+            jackpot = int(np.random.choice([200, 300, 500]))
+            st.session_state.gold += jackpot
+            st.session_state.audio_to_play = "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3"
+            st.balloons()
+            st.success(f"💎 **JACKPOT!** You unlocked the master vault! (+{jackpot} Gold)")
+            save_game_data(player.username, "JACKPOT", st.session_state.gold)
             st.rerun()
         else:
-            st.warning("🔒 Door is locked! Buy a Key in the Adventurer Shop.")
-
-# Door 3: Enchanted Forest
-with door_col3:
-    st.markdown("#### 🌲 Enchanted Forest")
-    st.image("https://images.unsplash.com/photo-1511497584788-876761c11969?auto=format&fit=crop&w=500&q=80", use_container_width=True)
-    if st.button("Enter Forest Door"):
-        event = np.random.choice(["riddle", "potion", "ghost"], p=[0.4, 0.3, 0.3])
-        if event == "riddle":
-            riddles_list = [
-                {"riddle": "What gets wetter the more it dries?", "answer": "towel"},
-                {"riddle": "What has hands but cannot clap?", "answer": "clock"},
-                {"riddle": "What has to be broken before you can use it?", "answer": "egg"}
-            ]
-            st.session_state.active_riddle = random.choice(riddles_list)
-            st.rerun()
-        elif event == "potion":
-            st.session_state.potions = int(st.session_state.potions) + 1
-            st.success("🧪 A forest spirit gifted you a Health Potion!")
-            st.rerun()
-        else:
-            play_sound("trap")
-            st.session_state.hp -= 20
-            st.error("👻 A dark forest ghost drains your energy! (-20 HP)")
-            st.rerun()
+            st.warning("🔒 Door is locked! Buy a Key in the Shop sidebar.")
 
 
-# --- Achievements Badges ---
+# --- 4. Pandas Leaderboard Table ---
 st.markdown("---")
-st.subheader("🏆 Unlocked Achievement Badges")
-if st.session_state.achievements:
-    badge_cols = st.columns(len(st.session_state.achievements))
-    for idx, badge in enumerate(st.session_state.achievements):
-        badge_cols[idx].info(f"🏅 {badge}")
-else:
-    st.caption("No badges earned yet. Solve riddles and fight mimics to unlock badges!")
-
-
-# --- Hall of Fame & Global Ledger (Pandas) ---
-st.markdown("---")
-st.subheader("📜 Dungeon Hall of Fame & Adventure Ledger (Pandas)")
+st.subheader("📜 Dungeon History & Scores (Pandas)")
 history_data = load_game_data()
 
 if history_data:
     df = pd.DataFrame(history_data)
     st.dataframe(df.tail(8), use_container_width=True)
 else:
-    st.info("No recorded adventures yet.")
+    st.info("No games played yet. Click a door to start!")
