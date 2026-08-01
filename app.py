@@ -4,16 +4,39 @@ import numpy as np
 import json
 import re
 import os
+import random
 
-# --- 1. OOP & RegEx (Lesson Requirements) ---
+# --- Page Setup & Cool CSS Styling ---
+st.set_page_config(page_title="Cyber Mystery Doors", page_icon="🚪", layout="wide")
+
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #0f111a;
+        color: #00ffcc;
+    }
+    .door-btn {
+        font-size: 20px !important;
+        font-weight: bold;
+    }
+    .shop-card {
+        background: #1a1c29;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #00ffcc;
+        margin-bottom: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
+# --- 1. OOP & RegEx (Lesson Requirement) ---
 class Player:
-    """OOP Player Class with RegEx username validation."""
     def __init__(self, username):
         self.username = self.validate_username(username)
 
     @staticmethod
     def validate_username(name):
-        # RegEx Metacharacters: ^ (start), [a-zA-Z0-9_] (alphanumeric/underscore), {3,12} (length), $ (end)
         pattern = r"^[a-zA-Z0-9_]{3,12}$"
         if re.match(pattern, name):
             return name
@@ -41,74 +64,147 @@ def save_game_data(username, result, difficulty, score):
         json.dump(history, f, indent=4)
 
 
-# --- 3. Streamlit Web UI ---
-st.set_page_config(page_title="Mystery Door Game", page_icon="🚪")
+# --- 3. Audio Player Helper ---
+def play_sound(sound_type):
+    # Public domain retro game sounds
+    sounds = {
+        "win": "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3",
+        "lose": "https://cdn.freesound.org/previews/331/331912_3248244-lq.mp3",
+        "puzzle": "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
+    }
+    if sound_type in sounds:
+        st.markdown(f'<audio autoplay hidden><source src="{sounds[sound_type]}" type="audio/mp3"></audio>', unsafe_allow_html=True)
 
-st.title("🚪 Mystery Door Game")
-st.caption("Powered by Python, OOP, Pandas, NumPy, JSON, & RegEx!")
 
-# Sidebar for User Settings & RegEx validation
+# --- Session State Initialization ---
+if 'points' not in st.session_state:
+    st.session_state.points = 100
+if 'has_shield' not in st.session_state:
+    st.session_state.has_shield = False
+if 'active_puzzle' not in st.session_state:
+    st.session_state.active_puzzle = None
+if 'revealed_empty' not in st.session_state:
+    st.session_state.revealed_empty = None
+
+
+# --- Game Header ---
+st.title("🚪 CYBER MYSTERY DOORS 🎮")
+st.caption("A Python game featuring OOP, RegEx, Pandas, NumPy, JSON, & Sound Effects!")
+
+# --- Sidebar: Profile & Item Shop ---
 st.sidebar.header("👤 Player Profile")
-raw_name = st.sidebar.text_input("Username (3-12 characters):", "Player1")
+raw_name = st.sidebar.text_input("Username (3-12 alphanumeric):", "Player1")
 player = Player(raw_name)
+st.sidebar.write(f"Playing as: **{player.username}**")
 
-if player.username == "Player1" and raw_name != "Player1":
-    st.sidebar.warning("⚠️ Invalid username format! Defaulting to 'Player1'. Use 3-12 letters/numbers.")
-else:
-    st.sidebar.success(f"Playing as: **{player.username}**")
+st.sidebar.markdown("---")
+st.sidebar.header("🛒 Power-Up Shop")
+st.sidebar.write(f"💰 **Points Available:** `{st.session_state.points}`")
 
-# Difficulty selector
-difficulty = st.sidebar.selectbox("Choose Difficulty:", ["Easy (3 Doors)", "Medium (5 Doors)", "Hard (10 Doors)"])
+if st.sidebar.button("🛡️ Buy Ghost Shield (50 pts)"):
+    if st.session_state.points >= 50:
+        st.session_state.points -= 50
+        st.session_state.has_shield = True
+        st.sidebar.success("Shield Purchased! You are safe from the next ghost.")
+    else:
+        st.sidebar.error("Not enough points!")
+
+if st.sidebar.button("🔮 Buy Oracle Glass (75 pts)"):
+    if st.session_state.points >= 75:
+        st.session_state.points -= 75
+        st.session_state.revealed_empty = random.randint(1, 3)
+        st.sidebar.success("Oracle Glass Activated! One trap door will be revealed.")
+    else:
+        st.sidebar.error("Not enough points!")
+
+if st.session_state.has_shield:
+    st.sidebar.info("🛡️ Ghost Shield Active")
+
+# --- Game Setup ---
+difficulty = st.radio("Choose Difficulty:", ["Easy (3 Doors)", "Medium (5 Doors)", "Hard (10 Doors)"], horizontal=True)
 num_doors = 3 if "3" in difficulty else (5 if "5" in difficulty else 10)
 
-# Initialize Session State
 if 'winning_door' not in st.session_state or st.session_state.get('last_num_doors') != num_doors:
-    st.session_state.winning_door = int(np.random.randint(1, num_doors + 1)) # NumPy
+    st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
+    st.session_state.puzzle_door = int(np.random.randint(1, num_doors + 1))
+    while st.session_state.puzzle_door == st.session_state.winning_door:
+        st.session_state.puzzle_door = int(np.random.randint(1, num_doors + 1))
     st.session_state.last_num_doors = num_doors
-    st.session_state.score = 0
 
-st.write(f"### Pick a door to find the 🏆 treasure! (1 in {num_doors} chance)")
 
-# --- Render Door Buttons ---
-cols = st.columns(min(num_doors, 5)) # Dynamic columns layout
+# --- Render Active Brain Puzzle ---
+if st.session_state.active_puzzle:
+    st.warning("🧠 **BRAIN PUZZLE DOOR OPENED!** Solve this to win points!")
+    p_data = st.session_state.active_puzzle
+    user_ans = st.number_input(f"What is {p_data['num1']} + {p_data['num2']} x {p_data['num3']}?", value=0)
+    
+    if st.button("Submit Answer"):
+        correct_ans = p_data['num1'] + (p_data['num2'] * p_data['num3'])
+        if user_ans == correct_ans:
+            st.session_state.points += 150
+            play_sound("puzzle")
+            st.success("🎉 Correct Answer! You earned +150 Points!")
+            save_game_data(player.username, "PUZZLE_WIN", difficulty, st.session_state.points)
+        else:
+            play_sound("lose")
+            st.error(f"❌ Wrong! The answer was {correct_ans}.")
+        
+        st.session_state.active_puzzle = None
+        st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
+        st.rerun()
+
+# --- Render Doors ---
+st.markdown("### Select a Door:")
+cols = st.columns(min(num_doors, 5))
 
 for i in range(num_doors):
     door_num = i + 1
     col_idx = i % 5
     
-    if cols[col_idx].button(f"🚪 Door {door_num}", key=f"door_{door_num}"):
+    label = f"🚪 Door {door_num}"
+    if st.session_state.revealed_empty == door_num and door_num != st.session_state.winning_door:
+        label = f"💀 TRAP Door {door_num}"
+
+    if cols[col_idx].button(label, key=f"door_{door_num}"):
         if door_num == st.session_state.winning_door:
-            # NumPy generated multiplier prize
-            multiplier = int(np.random.choice([1, 2, 5], p=[0.6, 0.3, 0.1])) 
-            points = 100 * multiplier
-            st.session_state.score += points
-            
+            # Treasure Door
+            play_sound("win")
             st.balloons()
-            st.success(f"🎉 **YOU WIN!** Found the treasure behind Door {door_num}! (+{points} pts, Multiplier x{multiplier})")
-            save_game_data(player.username, "WIN", difficulty, st.session_state.score)
-        else:
-            st.error(f"👻 **GHOST!** Door {door_num} was empty. The treasure was behind Door {st.session_state.winning_door}.")
-            save_game_data(player.username, "LOSS", difficulty, st.session_state.score)
+            st.session_state.points += 100
+            st.success(f"🎉 **YOU FOUND THE TREASURE behind Door {door_num}!** (+100 Points)")
+            save_game_data(player.username, "WIN", difficulty, st.session_state.points)
+            st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
         
-        # Reset winning door for next round
-        st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
+        elif door_num == st.session_state.puzzle_door:
+            # Brain Puzzle Door
+            st.session_state.active_puzzle = {
+                "num1": int(np.random.randint(5, 20)),
+                "num2": int(np.random.randint(2, 10)),
+                "num3": int(np.random.randint(2, 5))
+            }
+            st.rerun()
+            
+        else:
+            # Ghost Door
+            if st.session_state.has_shield:
+                st.session_state.has_shield = False
+                st.info("🛡️ A Ghost jumped out, but your Shield protected your points!")
+            else:
+                play_sound("lose")
+                st.session_state.points = max(0, st.session_state.points - 30)
+                st.error(f"👻 **GHOST!** Door {door_num} was a trap! (-30 Points)")
+                save_game_data(player.username, "LOSS", difficulty, st.session_state.points)
+            
+            st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
 
-st.metric(label="Current Score", value=st.session_state.score)
 
-# --- 4. Pandas Game Analytics (Lesson Requirement) ---
+# --- 4. Pandas Analytics Table ---
 st.markdown("---")
-st.subheader("📊 Class Analytics & History (Pandas)")
-
+st.subheader("📊 Game History & Leaderboard (Pandas)")
 history_data = load_game_data()
+
 if history_data:
-    df = pd.DataFrame(history_data) # Pandas DataFrame
-    st.dataframe(df.tail(10), use_container_width=True) # Display interactive table
-    
-    # Quick statistics summary using Pandas
-    col1, col2 = st.columns(2)
-    col1.metric("Total Games Played", len(df))
-    wins_count = len(df[df['Result'] == 'WIN'])
-    col2.metric("Total Wins", wins_count)
+    df = pd.DataFrame(history_data)
+    st.dataframe(df.tail(8), use_container_width=True)
 else:
-    st.info("No game history recorded yet. Open a door to play!")
-    
+    st.info("No game history recorded yet. Open a door!")
