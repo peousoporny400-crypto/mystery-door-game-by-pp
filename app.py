@@ -15,21 +15,6 @@ st.markdown("""
         background-color: #0b0e14;
         color: #d1d5db;
     }
-    .stat-box {
-        background: #151d2a;
-        padding: 12px;
-        border-radius: 10px;
-        border: 1px solid #3b82f6;
-        text-align: center;
-        margin-bottom: 15px;
-    }
-    .door-card {
-        background: #1e293b;
-        padding: 15px;
-        border-radius: 12px;
-        border: 2px solid #475569;
-        text-align: center;
-    }
     .stButton>button {
         border-radius: 8px !important;
         font-weight: bold !important;
@@ -46,7 +31,6 @@ class Player:
 
     @staticmethod
     def validate_username(name):
-        # RegEx metacharacters: ^ (start), [a-zA-Z0-9_] (alphanumeric/underscore), {3,12} (length), $ (end)
         pattern = r"^[a-zA-Z0-9_]{3,12}$"
         return name if re.match(pattern, name) else "Hero1"
 
@@ -100,15 +84,15 @@ if 'achievements' not in st.session_state:
     st.session_state.achievements = set()
 
 
-# --- Game Header & Top HUD (Points & Stats Bar) ---
+# --- Game Header & Top HUD (Fixed Metric Error!) ---
 st.title("🗝️ REALM OF MYSTERY DOORS")
 
-# 🔝 Top Status Bar (Score & Stats visible at the top)
+# 🔝 Top Status Bar (Score & Stats formatted as Strings)
 hud_col1, hud_col2, hud_col3, hud_col4 = st.columns(4)
 hud_col1.metric("💰 Treasure Points", f"{st.session_state.points} Gold")
 hud_col2.metric("❤️ Player HP", f"{st.session_state.hp} / 100")
-hud_col3.metric("🗝️ Keys", f"{st.session_state.keys}")
-hud_col4.metric("🧪 Health Potions", f"{st.session_state.potions}")
+hud_col3.metric("🗝️ Keys", str(st.session_state.keys))
+hud_col4.metric("🧪 Health Potions", str(st.session_state.potions))
 
 st.markdown("---")
 
@@ -119,12 +103,10 @@ raw_name = st.sidebar.text_input("Hero Username (3-12 chars):", "Hero1")
 player = Player(raw_name)
 st.sidebar.write(f"Playing as: **{player.username}**")
 
-# Difficulty / Game Rules
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Game Mode")
 mode = st.sidebar.radio("Select Mode:", ["Standard Adventure", "💀 Permadeath Rogue-lite"])
 
-# Item Shop
 st.sidebar.markdown("---")
 st.sidebar.header("🛒 Adventurer Shop")
 if st.sidebar.button("🗝️ Buy Key (50 Gold)"):
@@ -132,6 +114,7 @@ if st.sidebar.button("🗝️ Buy Key (50 Gold)"):
         st.session_state.points -= 50
         st.session_state.keys += 1
         st.sidebar.success("Key purchased!")
+        st.rerun()
     else:
         st.sidebar.error("Not enough Gold!")
 
@@ -140,6 +123,7 @@ if st.sidebar.button("🧪 Buy Potion (40 Gold)"):
         st.session_state.points -= 40
         st.session_state.potions += 1
         st.sidebar.success("Potion purchased!")
+        st.rerun()
     else:
         st.sidebar.error("Not enough Gold!")
 
@@ -148,6 +132,7 @@ if st.sidebar.button("❤️ Use Health Potion (+30 HP)"):
         st.session_state.potions -= 1
         st.session_state.hp = min(100, st.session_state.hp + 30)
         st.sidebar.success("Restored +30 HP!")
+        st.rerun()
     else:
         st.sidebar.warning("No potions left or HP is full!")
 
@@ -156,7 +141,7 @@ if st.sidebar.button("❤️ Use Health Potion (+30 HP)"):
 if st.session_state.hp <= 0:
     play_sound("trap")
     st.error("☠️ **YOU DIED!** You lost all your health on this dungeon run.")
-    st.image("https://media.giphy.com/media/l2JJEIMLgrXPEbDGM/giphy.gif", width=350)
+    st.image("https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=500&q=80", width=400)
     
     save_game_data(player.username, "DIED", st.session_state.points, list(st.session_state.achievements))
     
@@ -204,11 +189,11 @@ if st.session_state.active_riddle:
 # 2. Mimic Combat Dice Roll
 if st.session_state.active_mimic:
     st.error("👺 **A MIMIC ATTACKS YOU! Roll a D20 to fight!**")
-    st.image("https://media.giphy.com/media/3o7TKSx0g7RQ1M9560/giphy.gif", width=300)
+    st.image("https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80", width=400)
     
     if st.button("🎲 Roll D20 Skill Check"):
         play_sound("dice")
-        roll = int(np.random.randint(1, 21)) # NumPy D20 Roll
+        roll = int(np.random.randint(1, 21))
         
         if roll >= 10:
             play_sound("fanfare")
@@ -225,7 +210,7 @@ if st.session_state.active_mimic:
         st.rerun()
 
 
-# --- 🚪 Themed Doors World ---
+# --- 🚪 Themed Doors World (Working Images) ---
 st.markdown("### Choose a World Door to Explore:")
 
 door_col1, door_col2, door_col3 = st.columns(3)
@@ -233,7 +218,7 @@ door_col1, door_col2, door_col3 = st.columns(3)
 # Door 1: Ancient Temple
 with door_col1:
     st.markdown("#### 🏛️ Ancient Temple")
-    st.image("https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400", use_container_width=True)
+    st.image("https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=500&q=80", use_container_width=True)
     if st.button("Open Temple Door"):
         event = np.random.choice(["gold", "trap", "key"], p=[0.5, 0.3, 0.2])
         if event == "gold":
@@ -247,11 +232,12 @@ with door_col1:
         else:
             st.session_state.keys += 1
             st.info("🗝️ You found an Old Brass Key!")
+        st.rerun()
 
 # Door 2: Cursed Mimic Vault (Requires Key)
 with door_col2:
     st.markdown("#### 💀 Cursed Vault")
-    st.image("https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400", use_container_width=True)
+    st.image("https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=500&q=80", use_container_width=True)
     if st.button("Unlock Vault (Uses 1 Key)"):
         if st.session_state.keys > 0:
             st.session_state.keys -= 1
@@ -263,7 +249,7 @@ with door_col2:
 # Door 3: Enchanted Forest
 with door_col3:
     st.markdown("#### 🌲 Enchanted Forest")
-    st.image("https://images.unsplash.com/photo-1511497584788-876761c11969?w=400", use_container_width=True)
+    st.image("https://images.unsplash.com/photo-1511497584788-876761c11969?auto=format&fit=crop&w=500&q=80", use_container_width=True)
     if st.button("Enter Forest Door"):
         event = np.random.choice(["riddle", "potion", "ghost"], p=[0.4, 0.3, 0.3])
         if event == "riddle":
@@ -277,10 +263,12 @@ with door_col3:
         elif event == "potion":
             st.session_state.potions += 1
             st.success("🧪 A forest spirit gifted you a Health Potion!")
+            st.rerun()
         else:
             play_sound("trap")
             st.session_state.hp -= 20
             st.error("👻 A dark forest ghost drains your energy! (-20 HP)")
+            st.rerun()
 
 
 # --- Achievements Badges ---
