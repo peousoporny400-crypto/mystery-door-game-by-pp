@@ -8,7 +8,7 @@ import streamlit as st
 
 # --- Page Setup & CSS Styling ---
 st.set_page_config(
-    page_title="Cyber Mystery Games", page_icon="🕹️", layout="wide"
+    page_title="Cyber Multi-Game Hub", page_icon="🕹️", layout="wide"
 )
 
 st.markdown(
@@ -35,6 +35,7 @@ st.markdown(
         padding: 15px;
         border-radius: 8px;
         margin-bottom: 10px;
+        min-height: 120px;
     }
     </style>
 """,
@@ -102,7 +103,7 @@ if "points" not in st.session_state:
 if "has_shield" not in st.session_state:
   st.session_state.has_shield = False
 
-# Door Game State
+# Door State
 if "active_puzzle" not in st.session_state:
   st.session_state.active_puzzle = None
 if "revealed_empty" not in st.session_state:
@@ -117,13 +118,9 @@ if "imposter_data" not in st.session_state:
   st.session_state.imposter_data = None
 
 
-# --- Game Header & Score Bar ---
+# --- Header & Top Score Display ---
 st.title("🕹️ CYBER MULTI-GAME HUB 🎮")
-st.caption(
-    "Easy: Mystery Doors | Medium: Tic-Tac-Toe | Hard: Guess the Imposter"
-)
 
-# Prominent Score Display
 st.markdown(
     f'<div class="score-banner">💰 CURRENT SCORE: {st.session_state.points} PTS'
     f' {" | 🛡️ Shield Active" if st.session_state.has_shield else ""}</div>',
@@ -145,7 +142,7 @@ if st.sidebar.button("🛡️ Buy Ghost Shield (50 pts)"):
   if st.session_state.points >= 50:
     st.session_state.points -= 50
     st.session_state.has_shield = True
-    st.sidebar.success("Shield Purchased! Shields protect against 1 loss.")
+    st.sidebar.success("Shield Purchased! Protects against 1 loss.")
     st.rerun()
   else:
     st.sidebar.error("Not enough points!")
@@ -154,9 +151,7 @@ if st.sidebar.button("🔮 Buy Oracle Glass (75 pts)"):
   if st.session_state.points >= 75:
     st.session_state.points -= 75
     st.session_state.revealed_empty = random.randint(1, 3)
-    st.sidebar.success(
-        "Oracle Glass Activated! One trap door revealed in Easy Mode."
-    )
+    st.sidebar.success("Oracle Glass Activated! One trap door revealed in Easy.")
     st.rerun()
   else:
     st.sidebar.error("Not enough points!")
@@ -165,10 +160,14 @@ if st.session_state.has_shield:
   st.sidebar.info("🛡️ Ghost Shield Active")
 
 
-# --- Game Mode Selection ---
+# --- Game Selection (With Easy / Medium / Hard Tags) ---
 selected_mode = st.radio(
     "Choose Game Mode:",
-    ["Easy (Mystery Doors)", "Medium (Tic-Tac-Toe)", "Hard (Guess Imposter)"],
+    [
+        "🟢 Easy Mode (Mystery Doors)",
+        "🟡 Medium Mode (Tic-Tac-Toe XO)",
+        "🔴 Hard Mode (Guess Imposter)",
+    ],
     horizontal=True,
 )
 
@@ -177,7 +176,7 @@ selected_mode = st.radio(
 # 🟢 EASY MODE: MYSTERY DOORS
 # ==========================================
 if "Easy" in selected_mode:
-  st.subheader("🚪 Mystery Doors")
+  st.subheader("🟢 Easy Mode: Mystery Doors 🚪")
   num_doors = 5
 
   if (
@@ -190,7 +189,6 @@ if "Easy" in selected_mode:
       st.session_state.puzzle_door = int(np.random.randint(1, num_doors + 1))
     st.session_state.last_mode = "Easy"
 
-  # Brain Puzzle Check
   if st.session_state.active_puzzle:
     st.warning("🧠 **BRAIN PUZZLE DOOR OPENED!** Solve this to win points!")
     p_data = st.session_state.active_puzzle
@@ -206,7 +204,7 @@ if "Easy" in selected_mode:
         play_sound("puzzle")
         st.success("🎉 Correct Answer! You earned +150 Points!")
         save_game_data(
-            player.username, "PUZZLE_WIN", "Easy (Doors)", st.session_state.points
+            player.username, "PUZZLE_WIN", "Easy", st.session_state.points
         )
       else:
         play_sound("lose")
@@ -216,8 +214,6 @@ if "Easy" in selected_mode:
       st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
       st.rerun()
 
-  # Door Buttons
-  st.markdown("Select a door to reveal its contents:")
   cols = st.columns(num_doors)
   for i in range(num_doors):
     door_num = i + 1
@@ -237,7 +233,7 @@ if "Easy" in selected_mode:
             f"🎉 **YOU FOUND THE TREASURE behind Door {door_num}!** (+100 Points)"
         )
         save_game_data(
-            player.username, "WIN", "Easy (Doors)", st.session_state.points
+            player.username, "WIN", "Easy", st.session_state.points
         )
         st.session_state.winning_door = int(
             np.random.randint(1, num_doors + 1)
@@ -260,7 +256,7 @@ if "Easy" in selected_mode:
           st.session_state.points = max(0, st.session_state.points - 30)
           st.error(f"👻 **GHOST!** Door {door_num} was a trap! (-30 Points)")
           save_game_data(
-              player.username, "LOSS", "Easy (Doors)", st.session_state.points
+              player.username, "LOSS", "Easy", st.session_state.points
           )
         st.session_state.winning_door = int(
             np.random.randint(1, num_doors + 1)
@@ -268,37 +264,67 @@ if "Easy" in selected_mode:
 
 
 # ==========================================
-# 🟡 MEDIUM MODE: TIC-TAC-TOE (XO)
+# 🟡 MEDIUM MODE: HARDER TIC-TAC-TOE (XO)
 # ==========================================
 elif "Medium" in selected_mode:
-  st.subheader("❌⭕ Tic-Tac-Toe (XO)")
+  st.subheader("🟡 Medium Mode: Smart AI Tic-Tac-Toe (XO) ❌⭕")
   st.caption(
-      "Play as **X** against the AI (**O**). Win: +100 Pts | Draw: +20 Pts |"
-      " Loss: -30 Pts"
+      "Play as **X**. The AI (**O**) will block your moves and try to win!"
   )
 
+  WIN_LINES = [
+      (0, 1, 2),
+      (3, 4, 5),
+      (6, 7, 8),  # rows
+      (0, 3, 6),
+      (1, 4, 7),
+      (2, 5, 8),  # cols
+      (0, 4, 8),
+      (2, 4, 6),  # diagonals
+  ]
+
   def check_winner(b):
-    lines = [
-        (0, 1, 2),
-        (3, 4, 5),
-        (6, 7, 8),  # rows
-        (0, 3, 6),
-        (1, 4, 7),
-        (2, 5, 8),  # cols
-        (0, 4, 8),
-        (2, 4, 6),  # diagonals
-    ]
-    for x, y, z in lines:
+    for x, y, z in WIN_LINES:
       if b[x] == b[y] == b[z] and b[x] != " ":
         return b[x]
     if " " not in b:
       return "Draw"
     return None
 
+  def smart_ai_move(b):
+    empty = [i for i, v in enumerate(b) if v == " "]
+    if not empty:
+      return None
+
+    # 1. Check if AI can WIN this turn
+    for i in empty:
+      temp = b.copy()
+      temp[i] = "O"
+      if check_winner(temp) == "O":
+        return i
+
+    # 2. BLOCK Player 'X' from winning next turn
+    for i in empty:
+      temp = b.copy()
+      temp[i] = "X"
+      if check_winner(temp) == "X":
+        return i
+
+    # 3. Take Center if available
+    if 4 in empty:
+      return 4
+
+    # 4. Take Corners
+    corners = [i for i in [0, 2, 6, 8] if i in empty]
+    if corners:
+      return random.choice(corners)
+
+    # 5. Fallback random
+    return random.choice(empty)
+
   def reset_xo():
     st.session_state.xo_board = [" "] * 9
 
-  # Display XO Grid
   board = st.session_state.xo_board
   grid_cols = st.columns(3)
 
@@ -306,106 +332,128 @@ elif "Medium" in selected_mode:
     col = grid_cols[idx % 3]
     btn_label = board[idx] if board[idx] != " " else " "
     if col.button(
-        btn_label if btn_label != " " else f"- (Cell {idx+1}) -", key=f"xo_{idx}"
+        btn_label if btn_label != " " else f"- ({idx+1}) -", key=f"xo_{idx}"
     ):
       if board[idx] == " ":
-        # Player Move
+        # Player move
         board[idx] = "X"
         winner = check_winner(board)
 
-        # AI Move if game not over
+        # Smart AI move
         if not winner:
-          empty_indices = [i for i, v in enumerate(board) if v == " "]
-          if empty_indices:
-            ai_idx = random.choice(empty_indices)
+          ai_idx = smart_ai_move(board)
+          if ai_idx is not None:
             board[ai_idx] = "O"
             winner = check_winner(board)
 
-        # Handle Game Over
         if winner == "X":
           play_sound("win")
           st.balloons()
           st.session_state.points += 100
-          st.success("🎉 You beat the AI! (+100 Points)")
+          st.success("🎉 You beat the Smart AI! (+100 Points)")
           save_game_data(
-              player.username, "WIN", "Medium (XO)", st.session_state.points
+              player.username, "WIN", "Medium XO", st.session_state.points
           )
           reset_xo()
         elif winner == "O":
           if st.session_state.has_shield:
             st.session_state.has_shield = False
-            st.info("🛡️ You lost, but your Ghost Shield absorbed the penalty!")
+            st.info("🛡️ You lost, but your Shield protected your points!")
           else:
             play_sound("lose")
             st.session_state.points = max(0, st.session_state.points - 30)
-            st.error("❌ AI Won! (-30 Points)")
+            st.error("❌ Smart AI Won! (-30 Points)")
             save_game_data(
-                player.username, "LOSS", "Medium (XO)", st.session_state.points
+                player.username, "LOSS", "Medium XO", st.session_state.points
             )
           reset_xo()
         elif winner == "Draw":
           st.session_state.points += 20
-          st.info("🤝 It's a Draw! (+20 Points)")
+          st.info("🤝 Draw against Smart AI! (+20 Points)")
           save_game_data(
-              player.username, "DRAW", "Medium (XO)", st.session_state.points
+              player.username, "DRAW", "Medium XO", st.session_state.points
           )
           reset_xo()
         st.rerun()
 
-  if st.button("Reset XO Board"):
+  if st.button("Reset Board"):
     reset_xo()
     st.rerun()
 
 
 # ==========================================
-# 🔴 HARD MODE: GUESS THE IMPOSTER
+# 🔴 HARD MODE: HARDER GUESS THE IMPOSTER
 # ==========================================
 elif "Hard" in selected_mode:
-  st.subheader("🕵️ Guess the Imposter")
+  st.subheader("🔴 Hard Mode: Tricky Imposter Deduction 🕵️")
   st.caption(
-      "Read the statements below. One suspect is lying (the Imposter/Ghost)!"
-      " Win: +200 Pts | Loss: -50 Pts"
+      "Read closely! The lies are subtler and test math, logic, & trivia. Win:"
+      " +200 Pts | Loss: -50 Pts"
   )
 
-  # Generate Imposter Scenario
   if (
       not st.session_state.imposter_data
       or st.session_state.get("last_mode") != "Hard"
   ):
     scenarios = [
         {
-            "topic": "Favorite Color",
+            "topic": "Prime Numbers",
             "statements": {
-                "Alpha": "I like Blue because it looks like the sky.",
-                "Beta": "I like Blue too, it feels calm.",
-                "Gamma": (
-                    "I love Blue! Banana ice cream is my favorite blue food."
-                ),  # LIE
+                "Alpha": "2 is the only even prime number.",
+                "Beta": (
+                    "1 is the smallest prime number."
+                ),  # LIE (1 is not prime)
+                "Gamma": "13 is a prime number.",
             },
-            "imposter": "Gamma",
-            "hint": "Bananas aren't blue!",
+            "imposter": "Beta",
+            "hint": "1 is NOT a prime number! 2 is the smallest prime number.",
         },
         {
-            "topic": "Math Rules",
+            "topic": "Solar System Science",
             "statements": {
-                "Red": "5 x 5 is 25.",
-                "Blue": "10 divided by 2 is 5.",
-                "Green": "Adding 0 to any number doubles it.",  # LIE
-            },
-            "imposter": "Green",
-            "hint": "Adding 0 keeps the number the same!",
-        },
-        {
-            "topic": "Animals",
-            "statements": {
-                "Cipher": "Dogs bark and have four legs.",
-                "Vortex": "Fish live underwater and breathe with gills.",
-                "Shadow": (
-                    "Birds are mammals that produce chocolate milk."
+                "Vortex": "Venus is the hottest planet in our solar system.",
+                "Nova": "Jupiter has the shortest day of all planets.",
+                "Pulse": (
+                    "Mars has 4 moons named Phobos, Deimos, Titan, and Io."
                 ),  # LIE
             },
-            "imposter": "Shadow",
-            "hint": "Birds are not mammals and don't make milk!",
+            "imposter": "Pulse",
+            "hint": (
+                "Mars only has 2 moons (Phobos & Deimos). Titan is Saturn's"
+                " moon!"
+            ),
+        },
+        {
+            "topic": "Computing & Bytes",
+            "statements": {
+                "Byte": "There are 8 bits in 1 byte.",
+                "RAM": "1 Kilobyte is equal to 1,024 Bytes.",
+                "Core": "1 Megabyte is equal to 500 Kilobytes exactly.",  # LIE
+            },
+            "imposter": "Core",
+            "hint": "1 Megabyte is 1,024 Kilobytes, not 500!",
+        },
+        {
+            "topic": "Geometry Facts",
+            "statements": {
+                "Vector": "All internal angles of a triangle sum to 180°.",
+                "Matrix": "A hexagon has 6 straight sides.",
+                "Axiom": (
+                    "A square has internal angles summing to 540°."
+                ),  # LIE
+            },
+            "imposter": "Axiom",
+            "hint": "A square's internal angles sum to 360° (4 x 90°)!",
+        },
+        {
+            "topic": "Logic Clues",
+            "statements": {
+                "Agent X": "If it rains, the grass gets wet.",
+                "Agent Y": "An electric train moving North has smoke blowing South.",  # LIE
+                "Agent Z": "Ice floats because it is less dense than water.",
+            },
+            "imposter": "Agent Y",
+            "hint": "Electric trains don't produce smoke!",
         },
     ]
     st.session_state.imposter_data = random.choice(scenarios)
@@ -414,7 +462,6 @@ elif "Hard" in selected_mode:
   data = st.session_state.imposter_data
   st.markdown(f"**Topic:** `{data['topic']}`")
 
-  # Render Suspect Statements
   cols = st.columns(3)
   suspects = list(data["statements"].keys())
 
@@ -434,10 +481,7 @@ elif "Hard" in selected_mode:
               f" {data['hint']}"
           )
           save_game_data(
-              player.username,
-              "IMPOSTER_WIN",
-              "Hard (Imposter)",
-              st.session_state.points,
+              player.username, "WIN", "Hard Imposter", st.session_state.points
           )
         else:
           if st.session_state.has_shield:
@@ -450,13 +494,13 @@ elif "Hard" in selected_mode:
             play_sound("lose")
             st.session_state.points = max(0, st.session_state.points - 50)
             st.error(
-                f"❌ WRONG! {name} was telling the truth! The real imposter was"
+                f"❌ WRONG! {name} was telling the truth! The imposter was"
                 f" {data['imposter']}. (-50 Points)"
             )
             save_game_data(
                 player.username,
-                "IMPOSTER_LOSS",
-                "Hard (Imposter)",
+                "LOSS",
+                "Hard Imposter",
                 st.session_state.points,
             )
 
