@@ -43,10 +43,10 @@ if 'keys' not in st.session_state or type(st.session_state.keys) != int:
 st.title("🌾 Mystery Farm & Brain Doors 🚪")
 
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("🪙 Gold Points", st.session_state.gold)
+m1.metric("🪙 Gold Points", f"{st.session_state.gold}")
 m2.metric("❤️ Health", f"{st.session_state.health}/{st.session_state.max_health}")
-m3.metric("🔑 Dungeon Keys", st.session_state.keys)
-m4.metric("🧪 Health Potions", st.session_state.potions)
+m3.metric("🔑 Dungeon Keys", f"{st.session_state.keys}")
+m4.metric("🧪 Health Potions", f"{st.session_state.potions}")
 
 st.divider()
 
