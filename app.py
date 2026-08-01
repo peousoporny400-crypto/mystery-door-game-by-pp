@@ -49,14 +49,14 @@ def save_game_data(username, outcome, score, achievements):
     history.append({
         "Username": username,
         "Outcome": outcome,
-        "Treasure Score": score,
+        "Treasure Score": int(score),
         "Badges Earned": ", ".join(achievements) if achievements else "None"
     })
     with open(JSON_FILE, "w") as f:
         json.dump(history, f, indent=4)
 
 
-# --- 3. Audio & Media Helper ---
+# --- 3. Audio Helper ---
 def play_sound(sound_type):
     sounds = {
         "fanfare": "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3",
@@ -67,14 +67,14 @@ def play_sound(sound_type):
         st.markdown(f'<audio autoplay hidden><source src="{sounds[sound_type]}" type="audio/mp3"></audio>', unsafe_allow_html=True)
 
 
-# --- Initialize Session State ---
+# --- Initialize Session State (Strictly Numbers) ---
 if 'hp' not in st.session_state:
     st.session_state.hp = 100
 if 'points' not in st.session_state:
     st.session_state.points = 150
-if 'keys' not in st.session_state:
+if 'keys' not in st.session_state or type(st.session_state.keys) is str:
     st.session_state.keys = 1
-if 'potions' not in st.session_state:
+if 'potions' not in st.session_state or type(st.session_state.potions) is str:
     st.session_state.potions = 1
 if 'active_riddle' not in st.session_state:
     st.session_state.active_riddle = None
@@ -84,10 +84,10 @@ if 'achievements' not in st.session_state:
     st.session_state.achievements = set()
 
 
-# --- Game Header & Top HUD (Fixed Metric Error!) ---
+# --- Game Header & Top HUD ---
 st.title("🗝️ REALM OF MYSTERY DOORS")
 
-# 🔝 Top Status Bar (Score & Stats formatted as Strings)
+# 🔝 Top Status Bar (Score & Stats formatted as Strings safely)
 hud_col1, hud_col2, hud_col3, hud_col4 = st.columns(4)
 hud_col1.metric("💰 Treasure Points", f"{st.session_state.points} Gold")
 hud_col2.metric("❤️ Player HP", f"{st.session_state.hp} / 100")
@@ -112,7 +112,7 @@ st.sidebar.header("🛒 Adventurer Shop")
 if st.sidebar.button("🗝️ Buy Key (50 Gold)"):
     if st.session_state.points >= 50:
         st.session_state.points -= 50
-        st.session_state.keys += 1
+        st.session_state.keys = int(st.session_state.keys) + 1
         st.sidebar.success("Key purchased!")
         st.rerun()
     else:
@@ -121,15 +121,15 @@ if st.sidebar.button("🗝️ Buy Key (50 Gold)"):
 if st.sidebar.button("🧪 Buy Potion (40 Gold)"):
     if st.session_state.points >= 40:
         st.session_state.points -= 40
-        st.session_state.potions += 1
+        st.session_state.potions = int(st.session_state.potions) + 1
         st.sidebar.success("Potion purchased!")
         st.rerun()
     else:
         st.sidebar.error("Not enough Gold!")
 
 if st.sidebar.button("❤️ Use Health Potion (+30 HP)"):
-    if st.session_state.potions > 0 and st.session_state.hp < 100:
-        st.session_state.potions -= 1
+    if int(st.session_state.potions) > 0 and st.session_state.hp < 100:
+        st.session_state.potions = int(st.session_state.potions) - 1
         st.session_state.hp = min(100, st.session_state.hp + 30)
         st.sidebar.success("Restored +30 HP!")
         st.rerun()
@@ -210,7 +210,7 @@ if st.session_state.active_mimic:
         st.rerun()
 
 
-# --- 🚪 Themed Doors World (Working Images) ---
+# --- 🚪 Themed Doors World ---
 st.markdown("### Choose a World Door to Explore:")
 
 door_col1, door_col2, door_col3 = st.columns(3)
@@ -230,7 +230,7 @@ with door_col1:
             st.session_state.hp -= 15
             st.error("🐍 Poison dart trap! (-15 HP)")
         else:
-            st.session_state.keys += 1
+            st.session_state.keys = int(st.session_state.keys) + 1
             st.info("🗝️ You found an Old Brass Key!")
         st.rerun()
 
@@ -239,8 +239,8 @@ with door_col2:
     st.markdown("#### 💀 Cursed Vault")
     st.image("https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=500&q=80", use_container_width=True)
     if st.button("Unlock Vault (Uses 1 Key)"):
-        if st.session_state.keys > 0:
-            st.session_state.keys -= 1
+        if int(st.session_state.keys) > 0:
+            st.session_state.keys = int(st.session_state.keys) - 1
             st.session_state.active_mimic = True
             st.rerun()
         else:
@@ -261,7 +261,7 @@ with door_col3:
             st.session_state.active_riddle = random.choice(riddles_list)
             st.rerun()
         elif event == "potion":
-            st.session_state.potions += 1
+            st.session_state.potions = int(st.session_state.potions) + 1
             st.success("🧪 A forest spirit gifted you a Health Potion!")
             st.rerun()
         else:
