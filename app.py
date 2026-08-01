@@ -24,10 +24,9 @@ def init_game():
     st.session_state.gold = 100
     st.session_state.health = 100
     st.session_state.max_health = 100
-    st.session_state.keys = 1  # Integer to prevent type errors!
+    st.session_state.keys = 1
     st.session_state.potions = 2
     
-    # Farming State (Hay Day System)
     st.session_state.farm_plots = [
         {"crop": None, "planted_at": None, "grow_time": 0} for _ in range(4)
     ]
@@ -86,7 +85,8 @@ with st.sidebar:
 
     st.divider()
     if st.button("🔄 Reset Game"):
-        init_game()
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
         st.rerun()
 
 # --- GAME OVER CHECK ---
@@ -149,6 +149,8 @@ with tab_farm:
             "Golden Berries": {"cost": 30, "time": 15}
         }
 
+        any_growing = False
+
         for idx, plot in enumerate(st.session_state.farm_plots):
             with grid[idx % 2]:
                 st.markdown(f"**Plot #{idx + 1}**")
@@ -170,9 +172,8 @@ with tab_farm:
                     remaining = max(0, int(plot["grow_time"] - elapsed))
                     
                     if remaining > 0:
-                        st.info(f"🌾 {plot['crop']} growing... ({remaining}s remaining)")
-                        if st.button("🔄 Refresh Status", key=f"ref_{idx}"):
-                            st.rerun()
+                        any_growing = True
+                        st.info(f"⏳ {plot['crop']} growing... ({remaining}s remaining)")
                     else:
                         st.success(f"✨ {plot['crop']} Ready!")
                         if st.button(f"Harvest {plot['crop']}", key=f"harv_{idx}"):
@@ -180,6 +181,11 @@ with tab_farm:
                             plot["crop"] = None
                             plot["planted_at"] = None
                             st.rerun()
+
+        # Auto-refresh page every 1 second while crops are actively growing
+        if any_growing:
+            time.sleep(1)
+            st.rerun()
 
 # ==================== TAB 2: BRAIN PUZZLE DOORS ====================
 with tab_doors:
@@ -213,7 +219,6 @@ with tab_doors:
                 st.session_state.active_puzzle = "riddle"
                 st.rerun()
 
-    # --- ACTIVE PUZZLE DISPLAY ---
     else:
         st.divider()
         if st.session_state.active_puzzle == "math":
