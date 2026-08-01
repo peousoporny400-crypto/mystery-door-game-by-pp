@@ -1,538 +1,363 @@
-import json
-import os
-import random
-import re
-import numpy as np
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import numpy as np
+import math
+import random
+import time
+import re
 
-# --- Page Setup & CSS Styling ---
-st.set_page_config(
-    page_title="Cyber Multi-Game Hub", page_icon="🕹️", layout="wide"
-)
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Ultimate Roblox Arcade Hub", page_icon="🎮", layout="wide")
 
-st.markdown(
-    """
+st.markdown("""
     <style>
-    .stApp {
-        background-color: #0f111a;
-        color: #00ffcc;
-    }
-    .score-banner {
-        background-color: #1a1c29;
-        border: 2px solid #00ffcc;
-        border-radius: 10px;
-        padding: 10px 20px;
-        text-align: center;
-        font-size: 24px;
-        font-weight: bold;
-        color: #00ffcc;
-        margin-bottom: 20px;
-    }
-    .suspect-box {
-        background-color: #1a1c29;
-        border: 1px solid #00ffcc;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        min-height: 120px;
-    }
+    .stApp { background-color: #0d1117; color: #e6edf3; }
+    .stButton>button { border-radius: 8px !important; font-weight: bold !important; }
     </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
+
+# --- SOUND EFFECT HELPER ---
+SOUNDS = {
+    "win": "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3",
+    "fail": "https://cdn.freesound.org/previews/145/145303_2615119-lq.mp3",
+    "click": "https://cdn.freesound.org/previews/256/256116_3263906-lq.mp3"
+}
+
+def play_sound(sound_key):
+    if sound_key in SOUNDS:
+        st.audio(SOUNDS[sound_key], autoplay=True)
+
+# ==============================================================================
+# 🧠 LESSON 1: OOP CLASSES
+# ==============================================================================
+
+class Dragon:
+    """OOP Class for Dragon City feature."""
+    def __init__(self, name, element, hp, attack):
+        self.name = name
+        self.element = element
+        self.hp = hp
+        self.max_hp = hp
+        self.attack = attack
+        self.level = 1
+
+    def level_up(self):
+        self.level += 1
+        self.max_hp += 20
+        self.hp = self.max_hp
+        self.attack += 5
 
 
-# --- 1. OOP & RegEx ---
 class Player:
+    """OOP Class for Global Player Stats."""
+    def __init__(self):
+        self.gold = 150
+        self.health = 100
+        self.max_health = 100
+        self.dragons = [Dragon("Flame Hatchling", "🔥 Fire", 80, 15)]
+        self.inventory = {"Wheat": 0, "Dragon Fruit": 0, "Car Fuel": 2}
+        self.scores_history = []
 
-  def __init__(self, username):
-    self.username = self.validate_username(username)
+    def add_gold(self, amount):
+        self.gold += amount
+        self.scores_history.append(amount)
 
-  @staticmethod
-  def validate_username(name):
-    pattern = r"^[a-zA-Z0-9_]{3,12}$"
-    if re.match(pattern, name):
-      return name
-    return "Player1"
-
-
-# --- 2. JSON Storage ---
-JSON_FILE = "save_data.json"
-
-
-def load_game_data():
-  if os.path.exists(JSON_FILE):
-    with open(JSON_FILE, "r") as f:
-      return json.load(f)
-  return []
+    def spend_gold(self, amount):
+        if self.gold >= amount:
+            self.gold -= amount
+            return True
+        return False
 
 
-def save_game_data(username, result, mode, score):
-  history = load_game_data()
-  history.append({
-      "Username": username,
-      "Result": result,
-      "Mode": mode,
-      "Score": score,
-  })
-  with open(JSON_FILE, "w") as f:
-    json.dump(history, f, indent=4)
+# Init Session State
+if "player" not in st.session_state:
+    st.session_state.player = Player()
 
+player = st.session_state.player
 
-# --- 3. Audio Player Helper ---
-def play_sound(sound_type):
-  sounds = {
-      "win": "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3",
-      "lose": "https://cdn.freesound.org/previews/331/331912_3248244-lq.mp3",
-      "puzzle": (
-          "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
-      ),
-  }
-  if sound_type in sounds:
-    st.markdown(
-        f'<audio autoplay hidden><source src="{sounds[sound_type]}"'
-        ' type="audio/mp3"></audio>',
-        unsafe_allow_html=True,
-    )
+# ==============================================================================
+# 🎮 HERO HEADER & SIDEBAR MENU
+# ==============================================================================
 
+st.markdown("""
+    <div style="background: linear-gradient(90deg, #1e1b4b, #312e81, #4338ca); padding: 20px; border-radius: 12px; text-align: center; color: white;">
+        <h1>🎮 ULTIMATE PYTHON ARCADE PORTAL 🎮</h1>
+        <p>Built with OOP, Pandas, NumPy, Math, Regex Metacharacters & Sound Effects!</p>
+    </div>
+    <br>
+""", unsafe_allow_html=True)
 
-# --- Session State Initialization ---
-if "points" not in st.session_state:
-  st.session_state.points = 100
-if "has_shield" not in st.session_state:
-  st.session_state.has_shield = False
-
-# Door State
-if "active_puzzle" not in st.session_state:
-  st.session_state.active_puzzle = None
-if "revealed_empty" not in st.session_state:
-  st.session_state.revealed_empty = None
-
-# XO State
-if "xo_board" not in st.session_state:
-  st.session_state.xo_board = [" "] * 9
-
-# Imposter State
-if "imposter_data" not in st.session_state:
-  st.session_state.imposter_data = None
-
-
-# --- Header & Top Score Display ---
-st.title("🕹️ CYBER MULTI-GAME HUB 🎮")
-
-st.markdown(
-    f'<div class="score-banner">💰 CURRENT SCORE: {st.session_state.points} PTS'
-    f' {" | 🛡️ Shield Active" if st.session_state.has_shield else ""}</div>',
-    unsafe_allow_html=True,
-)
-
-
-# --- Sidebar: Profile & Item Shop ---
-st.sidebar.header("👤 Player Profile")
-raw_name = st.sidebar.text_input("Username (3-12 alphanumeric):", "Player1")
-player = Player(raw_name)
-st.sidebar.write(f"Playing as: **{player.username}**")
-
-st.sidebar.markdown("---")
-st.sidebar.header("🛒 Power-Up Shop")
-st.sidebar.write(f"💰 **Points Available:** `{st.session_state.points}`")
-
-if st.sidebar.button("🛡️ Buy Ghost Shield (50 pts)"):
-  if st.session_state.points >= 50:
-    st.session_state.points -= 50
-    st.session_state.has_shield = True
-    st.sidebar.success("Shield Purchased! Protects against 1 loss.")
-    st.rerun()
-  else:
-    st.sidebar.error("Not enough points!")
-
-if st.sidebar.button("🔮 Buy Oracle Glass (75 pts)"):
-  if st.session_state.points >= 75:
-    st.session_state.points -= 75
-    st.session_state.revealed_empty = random.randint(1, 3)
-    st.sidebar.success("Oracle Glass Activated! One trap door revealed in Easy.")
-    st.rerun()
-  else:
-    st.sidebar.error("Not enough points!")
-
-if st.session_state.has_shield:
-  st.sidebar.info("🛡️ Ghost Shield Active")
-
-
-# --- Game Selection (With Easy / Medium / Hard Tags) ---
-selected_mode = st.radio(
-    "Choose Game Mode:",
+st.sidebar.title("🕹️ Arcade Select")
+current_game = st.sidebar.radio(
+    "Choose Game Module:",
     [
-        "🟢 Easy Mode (Mystery Doors)",
-        "🟡 Medium Mode (Tic-Tac-Toe XO)",
-        "🔴 Hard Mode (Guess Imposter)",
-    ],
-    horizontal=True,
+        "🐉 Dragon City Breeder",
+        "🍬 Candy Crush Match-3",
+        "🏎️ Hill Climb Racing",
+        "♟️ Chess Challenge",
+        "🎵 Tiles Hop Rhythm",
+        "❌⭕ OX (Tic-Tac-Toe)",
+        "🕵️ Guess Imposter",
+        "🧩 Tile & Math Puzzle",
+        "📊 Pandas & NumPy Analytics Lab"
+    ]
 )
 
+st.sidebar.divider()
+st.sidebar.metric("🪙 Arcade Gold", f"{player.gold}")
+st.sidebar.metric("🐉 Dragons Owned", f"{len(player.dragons)}")
 
-# ==========================================
-# 🟢 EASY MODE: MYSTERY DOORS
-# ==========================================
-if "Easy" in selected_mode:
-  st.subheader("🟢 Easy Mode: Mystery Doors 🚪")
-  num_doors = 5
+# ==============================================================================
+# 🐉 GAME 1: DRAGON CITY
+# ==============================================================================
+if current_game == "🐉 Dragon City Breeder":
+    st.title("🐉 Dragon City Breeder & Arena")
+    
+    tab_team, tab_arena = st.tabs(["🐉 Dragon Roster", "⚔️ Battle Arena"])
 
-  if (
-      "winning_door" not in st.session_state
-      or st.session_state.get("last_mode") != "Easy"
-  ):
-    st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
-    st.session_state.puzzle_door = int(np.random.randint(1, num_doors + 1))
-    while st.session_state.puzzle_door == st.session_state.winning_door:
-      st.session_state.puzzle_door = int(np.random.randint(1, num_doors + 1))
-    st.session_state.last_mode = "Easy"
+    with tab_team:
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.subheader("Your Dragon Squad (Pandas Frame)")
+            dragon_data = [{"Name": d.name, "Element": d.element, "Level": d.level, "HP": f"{d.hp}/{d.max_hp}", "Attack": d.attack} for d in player.dragons]
+            st.dataframe(pd.DataFrame(dragon_data), use_container_width=True)
 
-  if st.session_state.active_puzzle:
-    st.warning("🧠 **BRAIN PUZZLE DOOR OPENED!** Solve this to win points!")
-    p_data = st.session_state.active_puzzle
-    user_ans = st.number_input(
-        f"What is {p_data['num1']} + {p_data['num2']} x {p_data['num3']}?",
-        value=0,
-    )
+        with col2:
+            st.subheader("🥚 Hatchery")
+            if st.button("Hatch Frost Wyrm (60 Gold)"):
+                if player.spend_gold(60):
+                    player.dragons.append(Dragon("Frost Wyrm", "❄️ Ice", 90, 18))
+                    play_sound("win")
+                    st.success("Hatched a Frost Wyrm!")
+                    st.rerun()
+                else:
+                    play_sound("fail")
+                    st.error("Not enough gold!")
 
-    if st.button("Submit Answer"):
-      correct_ans = p_data["num1"] + (p_data["num2"] * p_data["num3"])
-      if user_ans == correct_ans:
-        st.session_state.points += 150
-        play_sound("puzzle")
-        st.success("🎉 Correct Answer! You earned +150 Points!")
-        save_game_data(
-            player.username, "PUZZLE_WIN", "Easy", st.session_state.points
-        )
-      else:
-        play_sound("lose")
-        st.error(f"❌ Wrong! The answer was {correct_ans}.")
+    with tab_arena:
+        st.subheader("⚔️ Wild Dragon Battle")
+        if "wild_hp" not in st.session_state:
+            st.session_state.wild_hp = 100
 
-      st.session_state.active_puzzle = None
-      st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
-      st.rerun()
+        active_d = player.dragons[0]
+        st.write(f"**Your Active Dragon:** {active_d.name} (Level {active_d.level})")
+        st.write(f"**Wild Boss HP:** {st.session_state.wild_hp}/100")
 
-  cols = st.columns(num_doors)
-  for i in range(num_doors):
-    door_num = i + 1
-    label = f"🚪 Door {door_num}"
-    if (
-        st.session_state.revealed_empty == door_num
-        and door_num != st.session_state.winning_door
-    ):
-      label = f"💀 TRAP Door {door_num}"
+        if st.button("🔥 Attack Wild Boss!"):
+            damage = int(active_d.attack + np.random.randint(-3, 6))
+            st.session_state.wild_hp -= damage
+            play_sound("click")
+            st.info(f"Dealt {damage} damage!")
 
-    if cols[i].button(label, key=f"door_{door_num}"):
-      if door_num == st.session_state.winning_door:
+            if st.session_state.wild_hp <= 0:
+                reward = int(np.random.randint(40, 80))
+                player.add_gold(reward)
+                play_sound("win")
+                st.balloons()
+                st.success(f"🎉 Boss Defeated! Earned {reward} Gold!")
+                st.session_state.wild_hp = 100
+                active_d.level_up()
+                st.rerun()
+
+# ==============================================================================
+# 🍬 GAME 2: CANDY CRUSH SAGA
+# ==============================================================================
+elif current_game == "🍬 Candy Crush Match-3":
+    st.title("🍬 Candy Crush Emoji Matcher")
+    
+    if "candy_grid" not in st.session_state:
+        candies = ["🍬", "🍭", "🍩", "🍫"]
+        st.session_state.candy_grid = np.random.choice(candies, size=(3, 3))
+
+    st.table(pd.DataFrame(st.session_state.candy_grid, columns=["Col 1", "Col 2", "Col 3"]))
+
+    if st.button("🔀 Swap Candies!"):
+        candies = ["🍬", "🍭", "🍩", "🍫"]
+        st.session_state.candy_grid = np.random.choice(candies, size=(3, 3))
+        
+        row_matches = any(len(set(row)) == 1 for row in st.session_state.candy_grid)
+        if row_matches:
+            player.add_gold(50)
+            play_sound("win")
+            st.success("🎉 CANDY MATCH! Earned +50 Gold!")
+        else:
+            play_sound("click")
+            st.info("No match this turn!")
+        st.rerun()
+
+# ==============================================================================
+# 🏎️ GAME 3: HILL CLIMB RACING
+# ==============================================================================
+elif current_game == "🏎️ Hill Climb Racing":
+    st.title("🏎️ Hill Climb Driver")
+    
+    if "distance" not in st.session_state:
+        st.session_state.distance = 0
+    if "fuel" not in st.session_state:
+        st.session_state.fuel = 100
+
+    col1, col2 = st.columns(2)
+    col1.metric("🏁 Distance", f"{st.session_state.distance:.1f} m")
+    col2.metric("⛽ Fuel", f"{st.session_state.fuel:.0f}%")
+
+    hill_angle = round(math.degrees(math.sin(st.session_state.distance / 10)), 1)
+    st.write(f"📐 Slope Angle: `{hill_angle}°`")
+
+    if st.session_state.fuel > 0:
+        if st.button("🏎️ Gas Pedal"):
+            st.session_state.distance += 5.5
+            fuel_used = 8 + (hill_angle / 10 if hill_angle > 0 else 2)
+            st.session_state.fuel = max(0, st.session_state.fuel - fuel_used)
+            play_sound("click")
+            
+            if st.session_state.distance >= 50:
+                player.add_gold(60)
+                play_sound("win")
+                st.success("🏆 Reached Mountain Peak! (+60 Gold)")
+                st.session_state.distance = 0
+                st.session_state.fuel = 100
+            st.rerun()
+    else:
+        st.error("Out of fuel!")
+        if st.button("Refill Fuel (20 Gold)"):
+            if player.spend_gold(20):
+                st.session_state.fuel = 100
+                st.rerun()
+
+# ==============================================================================
+# ♟️ GAME 4: CHESS CHALLENGE
+# ==============================================================================
+elif current_game == "♟️ Chess Challenge":
+    st.title("♟️ Chess Tactics")
+    
+    st.table(pd.DataFrame([["👑", "⬜", "⬜"], ["⬜", "♟️", "⬜"], ["⬜", "⬜", "🐴"]]))
+    choice = st.radio("Pick your move:", ["Jump to Top Right", "Jump to Middle", "Jump to Top Left"])
+
+    if st.button("Execute Move"):
+        if re.search(r"Top Right", choice):
+            player.add_gold(45)
+            play_sound("win")
+            st.success("🎉 CHECKMATE! (+45 Gold)")
+        else:
+            play_sound("fail")
+            st.error("❌ Blunder! Try again.")
+
+# ==============================================================================
+# 🎵 GAME 5: TILES HOP RHYTHM
+# ==============================================================================
+elif current_game == "🎵 Tiles Hop Rhythm":
+    st.title("🎵 Tiles Hop Reaction")
+    
+    if "tile_target" not in st.session_state:
+        st.session_state.tile_target = random.choice(["🎵 Tile A", "🎶 Tile B", "🎼 Tile C"])
+
+    st.subheader(f"Hop Target: **{st.session_state.tile_target}**")
+    cols = st.columns(3)
+    tiles = ["🎵 Tile A", "🎶 Tile B", "🎼 Tile C"]
+
+    for idx, t in enumerate(tiles):
+        with cols[idx]:
+            if st.button(f"Hop {t}", key=f"th_{idx}"):
+                if t == st.session_state.tile_target:
+                    player.add_gold(25)
+                    play_sound("win")
+                    st.success("✨ Perfect Hop! (+25 Gold)")
+                    st.session_state.tile_target = random.choice(tiles)
+                    st.rerun()
+                else:
+                    play_sound("fail")
+                    st.error("💥 Missed!")
+
+# ==============================================================================
+# ❌⭕ GAME 6: OX (TIC-TAC-TOE)
+# ==============================================================================
+elif current_game == "❌⭕ OX (Tic-Tac-Toe)":
+    st.title("❌⭕ OX Tic-Tac-Toe vs Bot")
+    
+    if "board" not in st.session_state:
+        st.session_state.board = [""] * 9
+
+    def check_winner(b):
+        wins = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+        for x, y, z in wins:
+            if b[x] == b[y] == b[z] and b[x] != "":
+                return b[x]
+        return "Tie" if "" not in b else None
+
+    grid = st.columns(3)
+    for i in range(9):
+        with grid[i % 3]:
+            lbl = st.session_state.board[i] if st.session_state.board[i] != "" else " "
+            if st.button(lbl, key=f"ox_{i}", use_container_width=True):
+                if st.session_state.board[i] == "" and check_winner(st.session_state.board) is None:
+                    st.session_state.board[i] = "❌"
+                    empty = [idx for idx, val in enumerate(st.session_state.board) if val == ""]
+                    if empty and check_winner(st.session_state.board) is None:
+                        st.session_state.board[random.choice(empty)] = "⭕"
+                    play_sound("click")
+                    st.rerun()
+
+    w = check_winner(st.session_state.board)
+    if w == "❌":
+        player.add_gold(30)
         play_sound("win")
-        st.balloons()
-        st.session_state.points += 100
-        st.success(
-            f"🎉 **YOU FOUND THE TREASURE behind Door {door_num}!** (+100 Points)"
-        )
-        save_game_data(
-            player.username, "WIN", "Easy", st.session_state.points
-        )
-        st.session_state.winning_door = int(
-            np.random.randint(1, num_doors + 1)
-        )
-      elif door_num == st.session_state.puzzle_door:
-        st.session_state.active_puzzle = {
-            "num1": int(np.random.randint(5, 20)),
-            "num2": int(np.random.randint(2, 10)),
-            "num3": int(np.random.randint(2, 5)),
-        }
-        st.rerun()
-      else:
-        if st.session_state.has_shield:
-          st.session_state.has_shield = False
-          st.info(
-              "🛡️ A Ghost jumped out, but your Shield protected your points!"
-          )
+        st.success("🎉 You won! (+30 Gold)")
+        if st.button("Reset Board"):
+            st.session_state.board = [""] * 9
+            st.rerun()
+
+# ==============================================================================
+# 🕵️ GAME 7: GUESS THE IMPOSTER (REGEX VALIDATION)
+# ==============================================================================
+elif current_game == "🕵️ Guess Imposter":
+    st.title("🕵️ Find the Imposter")
+    
+    if "imposter_name" not in st.session_state:
+        st.session_state.imposter_name = random.choice(["Red", "Blue", "Green", "Yellow"])
+
+    guess = st.text_input("Name suspect (e.g., Red, Blue):")
+    if st.button("Eject Suspect"):
+        if not re.match(r"^[A-Z][a-z]+$", guess):
+            st.warning("⚠️ Formatting Rule: Start with a Capital letter!")
+        elif guess == st.session_state.imposter_name:
+            player.add_gold(40)
+            play_sound("win")
+            st.success("🎉 Correct! Found Imposter (+40 Gold)")
+            st.session_state.imposter_name = random.choice(["Red", "Blue", "Green", "Yellow"])
         else:
-          play_sound("lose")
-          st.session_state.points = max(0, st.session_state.points - 30)
-          st.error(f"👻 **GHOST!** Door {door_num} was a trap! (-30 Points)")
-          save_game_data(
-              player.username, "LOSS", "Easy", st.session_state.points
-          )
-        st.session_state.winning_door = int(
-            np.random.randint(1, num_doors + 1)
-        )
+            play_sound("fail")
+            st.error("❌ Crewmate was innocent!")
 
-
-# ==========================================
-# 🟡 MEDIUM MODE: HARDER TIC-TAC-TOE (XO)
-# ==========================================
-elif "Medium" in selected_mode:
-  st.subheader("🟡 Medium Mode: Smart AI Tic-Tac-Toe (XO) ❌⭕")
-  st.caption(
-      "Play as **X**. The AI (**O**) will block your moves and try to win!"
-  )
-
-  WIN_LINES = [
-      (0, 1, 2),
-      (3, 4, 5),
-      (6, 7, 8),  # rows
-      (0, 3, 6),
-      (1, 4, 7),
-      (2, 5, 8),  # cols
-      (0, 4, 8),
-      (2, 4, 6),  # diagonals
-  ]
-
-  def check_winner(b):
-    for x, y, z in WIN_LINES:
-      if b[x] == b[y] == b[z] and b[x] != " ":
-        return b[x]
-    if " " not in b:
-      return "Draw"
-    return None
-
-  def smart_ai_move(b):
-    empty = [i for i, v in enumerate(b) if v == " "]
-    if not empty:
-      return None
-
-    # 1. Check if AI can WIN this turn
-    for i in empty:
-      temp = b.copy()
-      temp[i] = "O"
-      if check_winner(temp) == "O":
-        return i
-
-    # 2. BLOCK Player 'X' from winning next turn
-    for i in empty:
-      temp = b.copy()
-      temp[i] = "X"
-      if check_winner(temp) == "X":
-        return i
-
-    # 3. Take Center if available
-    if 4 in empty:
-      return 4
-
-    # 4. Take Corners
-    corners = [i for i in [0, 2, 6, 8] if i in empty]
-    if corners:
-      return random.choice(corners)
-
-    # 5. Fallback random
-    return random.choice(empty)
-
-  def reset_xo():
-    st.session_state.xo_board = [" "] * 9
-
-  board = st.session_state.xo_board
-  grid_cols = st.columns(3)
-
-  for idx in range(9):
-    col = grid_cols[idx % 3]
-    btn_label = board[idx] if board[idx] != " " else " "
-    if col.button(
-        btn_label if btn_label != " " else f"- ({idx+1}) -", key=f"xo_{idx}"
-    ):
-      if board[idx] == " ":
-        # Player move
-        board[idx] = "X"
-        winner = check_winner(board)
-
-        # Smart AI move
-        if not winner:
-          ai_idx = smart_ai_move(board)
-          if ai_idx is not None:
-            board[ai_idx] = "O"
-            winner = check_winner(board)
-
-        if winner == "X":
-          play_sound("win")
-          st.balloons()
-          st.session_state.points += 100
-          st.success("🎉 You beat the Smart AI! (+100 Points)")
-          save_game_data(
-              player.username, "WIN", "Medium XO", st.session_state.points
-          )
-          reset_xo()
-        elif winner == "O":
-          if st.session_state.has_shield:
-            st.session_state.has_shield = False
-            st.info("🛡️ You lost, but your Shield protected your points!")
-          else:
-            play_sound("lose")
-            st.session_state.points = max(0, st.session_state.points - 30)
-            st.error("❌ Smart AI Won! (-30 Points)")
-            save_game_data(
-                player.username, "LOSS", "Medium XO", st.session_state.points
-            )
-          reset_xo()
-        elif winner == "Draw":
-          st.session_state.points += 20
-          st.info("🤝 Draw against Smart AI! (+20 Points)")
-          save_game_data(
-              player.username, "DRAW", "Medium XO", st.session_state.points
-          )
-          reset_xo()
-        st.rerun()
-
-  if st.button("Reset Board"):
-    reset_xo()
-    st.rerun()
-
-
-# ==========================================
-# 🔴 HARD MODE: HARDER GUESS THE IMPOSTER
-# ==========================================
-elif "Hard" in selected_mode:
-  st.subheader("🔴 Hard Mode: Tricky Imposter Deduction 🕵️")
-  st.caption(
-      "Read closely! The lies are subtler and test math, logic, & trivia. Win:"
-      " +200 Pts | Loss: -50 Pts"
-  )
-
-  if (
-      not st.session_state.imposter_data
-      or st.session_state.get("last_mode") != "Hard"
-  ):
-    scenarios = [
-        {
-            "topic": "Prime Numbers",
-            "statements": {
-                "Alpha": "2 is the only even prime number.",
-                "Beta": (
-                    "1 is the smallest prime number."
-                ),  # LIE (1 is not prime)
-                "Gamma": "13 is a prime number.",
-            },
-            "imposter": "Beta",
-            "hint": "1 is NOT a prime number! 2 is the smallest prime number.",
-        },
-        {
-            "topic": "Solar System Science",
-            "statements": {
-                "Vortex": "Venus is the hottest planet in our solar system.",
-                "Nova": "Jupiter has the shortest day of all planets.",
-                "Pulse": (
-                    "Mars has 4 moons named Phobos, Deimos, Titan, and Io."
-                ),  # LIE
-            },
-            "imposter": "Pulse",
-            "hint": (
-                "Mars only has 2 moons (Phobos & Deimos). Titan is Saturn's"
-                " moon!"
-            ),
-        },
-        {
-            "topic": "Computing & Bytes",
-            "statements": {
-                "Byte": "There are 8 bits in 1 byte.",
-                "RAM": "1 Kilobyte is equal to 1,024 Bytes.",
-                "Core": "1 Megabyte is equal to 500 Kilobytes exactly.",  # LIE
-            },
-            "imposter": "Core",
-            "hint": "1 Megabyte is 1,024 Kilobytes, not 500!",
-        },
-        {
-            "topic": "Geometry Facts",
-            "statements": {
-                "Vector": "All internal angles of a triangle sum to 180°.",
-                "Matrix": "A hexagon has 6 straight sides.",
-                "Axiom": (
-                    "A square has internal angles summing to 540°."
-                ),  # LIE
-            },
-            "imposter": "Axiom",
-            "hint": "A square's internal angles sum to 360° (4 x 90°)!",
-        },
-        {
-            "topic": "Logic Clues",
-            "statements": {
-                "Agent X": "If it rains, the grass gets wet.",
-                "Agent Y": "An electric train moving North has smoke blowing South.",  # LIE
-                "Agent Z": "Ice floats because it is less dense than water.",
-            },
-            "imposter": "Agent Y",
-            "hint": "Electric trains don't produce smoke!",
-        },
-    ]
-    st.session_state.imposter_data = random.choice(scenarios)
-    st.session_state.last_mode = "Hard"
-
-  data = st.session_state.imposter_data
-  st.markdown(f"**Topic:** `{data['topic']}`")
-
-  cols = st.columns(3)
-  suspects = list(data["statements"].keys())
-
-  for idx, name in enumerate(suspects):
-    with cols[idx]:
-      st.markdown(
-          f"<div class='suspect-box'><h3>👤 {name}</h3><p><i>\"{data['statements'][name]}\"</i></p></div>",
-          unsafe_allow_html=True,
-      )
-      if st.button(f"Accuse {name}", key=f"accuse_{name}"):
-        if name == data["imposter"]:
-          play_sound("win")
-          st.balloons()
-          st.session_state.points += 200
-          st.success(
-              f"🎉 **CORRECT! {name} WAS THE IMPOSTER!** (+200 Points)\n\n*Reason:* "
-              f" {data['hint']}"
-          )
-          save_game_data(
-              player.username, "WIN", "Hard Imposter", st.session_state.points
-          )
+# ==============================================================================
+# 🧩 GAME 8: TILE & MATH PUZZLE
+# ==============================================================================
+elif current_game == "🧩 Tile & Math Puzzle":
+    st.title("🧩 Distance Logic Puzzle")
+    
+    ans = st.number_input("Find hypotenuse $c$ for $a=3, b=4$:", step=1.0)
+    if st.button("Check Math Answer"):
+        if ans == math.sqrt(3**2 + 4**2):
+            player.add_gold(35)
+            play_sound("win")
+            st.success("🎉 Correct distance ($c = 5.0$)! (+35 Gold)")
         else:
-          if st.session_state.has_shield:
-            st.session_state.has_shield = False
-            st.info(
-                f"🛡️ Wrong guess! {name} was innocent, but your Ghost Shield"
-                " saved your points!"
-            )
-          else:
-            play_sound("lose")
-            st.session_state.points = max(0, st.session_state.points - 50)
-            st.error(
-                f"❌ WRONG! {name} was telling the truth! The imposter was"
-                f" {data['imposter']}. (-50 Points)"
-            )
-            save_game_data(
-                player.username,
-                "LOSS",
-                "Hard Imposter",
-                st.session_state.points,
-            )
+            play_sound("fail")
+            st.error("❌ Incorrect math!")
 
-        st.session_state.imposter_data = None  # Reset scenario
-        st.rerun()
+# ==============================================================================
+# 📊 GAME 9: DATA SCIENCE LAB
+# ==============================================================================
+elif current_game == "📊 Pandas & NumPy Analytics Lab":
+    st.title("📊 Data Analytics Science Lab")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("📋 Summary Table (Pandas)")
+        st.dataframe(pd.DataFrame({"Stat": ["Gold", "Health"], "Value": [player.gold, player.health]}), use_container_width=True)
 
-
-# ==========================================
-# 📊 ANALYTICS & HISTORY SECTION
-# ==========================================
-st.markdown("---")
-left_col, right_col = st.columns([2, 1])
-
-with left_col:
-  st.subheader("📜 Game History (Pandas)")
-  history_data = load_game_data()
-
-  if history_data:
-    df = pd.DataFrame(history_data)
-    st.dataframe(df.tail(8), use_container_width=True)
-  else:
-    st.info("No game history recorded yet. Play a round!")
-
-with right_col:
-  st.subheader("📈 Quick Stats")
-  if history_data:
-    df = pd.DataFrame(history_data)
-    total_games = len(df)
-    total_wins = len(df[df["Result"].str.contains("WIN")])
-    win_rate = round((total_wins / total_games) * 100, 1)
-
-    st.metric(label="Total Rounds Played", value=total_games)
-    st.metric(label="Win Rate", value=f"{win_rate}%")
-  else:
-    st.write("Play rounds to see your statistics!")
+    with col2:
+        st.subheader("🧮 Stats (NumPy)")
+        if len(player.scores_history) > 0:
+            arr = np.array(player.scores_history)
+            st.write(f"- **Mean Earnings (np.mean):** `{np.mean(arr):.2f}` Gold")
+            st.write(f"- **Max Earned (np.max):** `{np.max(arr)}` Gold")
