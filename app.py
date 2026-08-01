@@ -1,258 +1,210 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+import json
+import re
+import os
 import random
-import time
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="Farm & Doors Adventure", page_icon="🌾", layout="wide")
+# --- Page Setup & Cool CSS Styling ---
+st.set_page_config(page_title="Cyber Mystery Doors", page_icon="🚪", layout="wide")
 
 st.markdown("""
     <style>
     .stApp {
-        background-color: #0d1117;
-        color: #e6edf3;
+        background-color: #0f111a;
+        color: #00ffcc;
     }
-    .stButton>button {
-        border-radius: 8px !important;
-        font-weight: bold !important;
+    .door-btn {
+        font-size: 20px !important;
+        font-weight: bold;
+    }
+    .shop-card {
+        background: #1a1c29;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #00ffcc;
+        margin-bottom: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 
-# --- SAFE SESSION STATE INITIALIZATION ---
-def init_game():
-    st.session_state.gold = 100
-    st.session_state.health = 100
-    st.session_state.max_health = 100
-    st.session_state.keys = 1
-    st.session_state.potions = 2
-    
-    st.session_state.farm_plots = [
-        {"crop": None, "planted_at": None, "grow_time": 0} for _ in range(4)
-    ]
-    st.session_state.inventory = {"Wheat": 0, "Magic Beans": 0, "Golden Berries": 0}
+# --- 1. OOP & RegEx (Lesson Requirement) ---
+class Player:
+    def __init__(self, username):
+        self.username = self.validate_username(username)
+
+    @staticmethod
+    def validate_username(name):
+        pattern = r"^[a-zA-Z0-9_]{3,12}$"
+        if re.match(pattern, name):
+            return name
+        return "Player1"
+
+
+# --- 2. JSON Storage (Lesson Requirement) ---
+JSON_FILE = "save_data.json"
+
+def load_game_data():
+    if os.path.exists(JSON_FILE):
+        with open(JSON_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_game_data(username, result, difficulty, score):
+    history = load_game_data()
+    history.append({
+        "Username": username,
+        "Result": result,
+        "Difficulty": difficulty,
+        "Score": score
+    })
+    with open(JSON_FILE, "w") as f:
+        json.dump(history, f, indent=4)
+
+
+# --- 3. Audio Player Helper ---
+def play_sound(sound_type):
+    # Public domain retro game sounds
+    sounds = {
+        "win": "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3",
+        "lose": "https://cdn.freesound.org/previews/331/331912_3248244-lq.mp3",
+        "puzzle": "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
+    }
+    if sound_type in sounds:
+        st.markdown(f'<audio autoplay hidden><source src="{sounds[sound_type]}" type="audio/mp3"></audio>', unsafe_allow_html=True)
+
+
+# --- Session State Initialization ---
+if 'points' not in st.session_state:
+    st.session_state.points = 100
+if 'has_shield' not in st.session_state:
+    st.session_state.has_shield = False
+if 'active_puzzle' not in st.session_state:
     st.session_state.active_puzzle = None
-    st.session_state.audio = None
+if 'revealed_empty' not in st.session_state:
+    st.session_state.revealed_empty = None
 
 
-if 'keys' not in st.session_state or type(st.session_state.keys) != int:
-    init_game()
+# --- Game Header ---
+st.title("🚪 CYBER MYSTERY DOORS 🎮")
+st.caption("A Python game featuring OOP, RegEx, Pandas, NumPy, JSON, & Sound Effects!")
 
-# --- HEADER / METRICS ---
-st.title("🌾 Mystery Farm & Brain Doors 🚪")
+# --- Sidebar: Profile & Item Shop ---
+st.sidebar.header("👤 Player Profile")
+raw_name = st.sidebar.text_input("Username (3-12 alphanumeric):", "Player1")
+player = Player(raw_name)
+st.sidebar.write(f"Playing as: **{player.username}**")
 
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("🪙 Gold Points", f"{st.session_state.gold}")
-m2.metric("❤️ Health", f"{st.session_state.health}/{st.session_state.max_health}")
-m3.metric("🔑 Dungeon Keys", f"{st.session_state.keys}")
-m4.metric("🧪 Health Potions", f"{st.session_state.potions}")
+st.sidebar.markdown("---")
+st.sidebar.header("🛒 Power-Up Shop")
+st.sidebar.write(f"💰 **Points Available:** `{st.session_state.points}`")
 
-st.divider()
-
-# --- AUDIO PLAYBACK ---
-if st.session_state.get("audio"):
-    st.audio(st.session_state.audio, autoplay=True)
-    st.session_state.audio = None
-
-# --- SIDEBAR: SHOP & RECOVER ---
-with st.sidebar:
-    st.header("🛒 Market & Supplies")
-    
-    if st.button("🔑 Buy Dungeon Key (40 Gold)"):
-        if st.session_state.gold >= 40:
-            st.session_state.gold -= 40
-            st.session_state.keys += 1
-            st.success("Bought 1 Key!")
-            st.rerun()
-        else:
-            st.error("Not enough Gold!")
-            
-    if st.button("🧪 Buy Potion (30 Gold)"):
-        if st.session_state.gold >= 30:
-            st.session_state.gold -= 30
-            st.session_state.potions += 1
-            st.success("Bought 1 Potion!")
-            st.rerun()
-        else:
-            st.error("Not enough Gold!")
-
-    if st.button("❤️ Drink Potion (+30 HP)"):
-        if st.session_state.potions > 0 and st.session_state.health < st.session_state.max_health:
-            st.session_state.potions -= 1
-            st.session_state.health = min(st.session_state.max_health, st.session_state.health + 30)
-            st.success("Healed 30 HP!")
-            st.rerun()
-
-    st.divider()
-    if st.button("🔄 Reset Game"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-
-# --- GAME OVER CHECK ---
-if st.session_state.health <= 0:
-    st.error("☠️ **GAME OVER! You ran out of health.**")
-    if st.button("🔄 Restart Game"):
-        init_game()
-        st.rerun()
-    st.stop()
-
-# --- MAIN TABS ---
-tab_farm, tab_doors = st.tabs(["🌾 Hay Day Farm", "🚪 Mystery Doors & Puzzles"])
-
-# ==================== TAB 1: HAY DAY FARMING ====================
-with tab_farm:
-    st.subheader("👨‍🌾 Your Crops & Harvesting")
-    st.caption("Plant crops, harvest them, and sell them for gold or key trades!")
-
-    col_inv, col_plots = st.columns([1, 2])
-
-    with col_inv:
-        st.write("### 🧺 Silo Inventory")
-        for crop, count in st.session_state.inventory.items():
-            st.write(f"- **{crop}**: {count}")
-        
-        st.write("---")
-        st.write("### 💰 Sell Produce")
-        if st.button("Sell 1x Wheat (+15 Gold)"):
-            if st.session_state.inventory["Wheat"] > 0:
-                st.session_state.inventory["Wheat"] -= 1
-                st.session_state.gold += 15
-                st.rerun()
-            else:
-                st.error("No Wheat in inventory!")
-
-        if st.button("Sell 1x Magic Beans (+40 Gold)"):
-            if st.session_state.inventory["Magic Beans"] > 0:
-                st.session_state.inventory["Magic Beans"] -= 1
-                st.session_state.gold += 40
-                st.rerun()
-            else:
-                st.error("No Magic Beans in inventory!")
-
-        if st.button("Trade 3x Golden Berries ➡️ 1 Key 🔑"):
-            if st.session_state.inventory["Golden Berries"] >= 3:
-                st.session_state.inventory["Golden Berries"] -= 3
-                st.session_state.keys += 1
-                st.success("Traded for 1 Key!")
-                st.rerun()
-            else:
-                st.error("Need 3 Golden Berries!")
-
-    with col_plots:
-        st.write("### 🌱 Farm Plots")
-        grid = st.columns(2)
-        
-        seeds = {
-            "Wheat": {"cost": 5, "time": 5},
-            "Magic Beans": {"cost": 15, "time": 10},
-            "Golden Berries": {"cost": 30, "time": 15}
-        }
-
-        any_growing = False
-
-        for idx, plot in enumerate(st.session_state.farm_plots):
-            with grid[idx % 2]:
-                st.markdown(f"**Plot #{idx + 1}**")
-                
-                if plot["crop"] is None:
-                    selected_seed = st.selectbox(f"Select Seed", list(seeds.keys()), key=f"seed_{idx}")
-                    if st.button(f"Plant {selected_seed}", key=f"plant_{idx}"):
-                        cost = seeds[selected_seed]["cost"]
-                        if st.session_state.gold >= cost:
-                            st.session_state.gold -= cost
-                            plot["crop"] = selected_seed
-                            plot["planted_at"] = time.time()
-                            plot["grow_time"] = seeds[selected_seed]["time"]
-                            st.rerun()
-                        else:
-                            st.error("Need more gold!")
-                else:
-                    elapsed = time.time() - plot["planted_at"]
-                    remaining = max(0, int(plot["grow_time"] - elapsed))
-                    
-                    if remaining > 0:
-                        any_growing = True
-                        st.info(f"⏳ {plot['crop']} growing... ({remaining}s remaining)")
-                    else:
-                        st.success(f"✨ {plot['crop']} Ready!")
-                        if st.button(f"Harvest {plot['crop']}", key=f"harv_{idx}"):
-                            st.session_state.inventory[plot["crop"]] += 1
-                            plot["crop"] = None
-                            plot["planted_at"] = None
-                            st.rerun()
-
-        # Auto-refresh page every 1 second while crops are actively growing
-        if any_growing:
-            time.sleep(1)
-            st.rerun()
-
-# ==================== TAB 2: BRAIN PUZZLE DOORS ====================
-with tab_doors:
-    st.subheader("🚪 The Brain Puzzle Dungeon")
-    st.caption("Open doors to face logic puzzles, solve riddles, or claim hidden rewards!")
-
-    if st.session_state.active_puzzle is None:
-        d1, d2, d3 = st.columns(3)
-        
-        with d1:
-            st.markdown("### 🚪 Door 1: Math Lock")
-            if st.button("Enter Door 1"):
-                st.session_state.active_puzzle = "math"
-                st.rerun()
-                
-        with d2:
-            st.markdown("### 🔑 Door 2: Vault (Needs Key)")
-            if st.button("Open Vault"):
-                if st.session_state.keys > 0:
-                    st.session_state.keys -= 1
-                    found = random.randint(50, 100)
-                    st.session_state.gold += found
-                    st.session_state.audio = "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3"
-                    st.success(f"Vault opened! Found {found} Gold!")
-                else:
-                    st.error("You need a Dungeon Key!")
-                    
-        with d3:
-            st.markdown("### 🧩 Door 3: Logic Riddle")
-            if st.button("Enter Door 3"):
-                st.session_state.active_puzzle = "riddle"
-                st.rerun()
-
+if st.sidebar.button("🛡️ Buy Ghost Shield (50 pts)"):
+    if st.session_state.points >= 50:
+        st.session_state.points -= 50
+        st.session_state.has_shield = True
+        st.sidebar.success("Shield Purchased! You are safe from the next ghost.")
     else:
-        st.divider()
-        if st.session_state.active_puzzle == "math":
-            st.write("### 🧠 Brain Challenge: Code Breaker")
-            st.write("Solve the equation to disarm the trap and get 40 Gold:")
-            st.latex(r"(12 \times 4) - 18 = ?")
-            
-            ans = st.number_input("Your Answer:", step=1, key="math_ans")
-            if st.button("Submit Code"):
-                if ans == 30:
-                    st.session_state.audio = "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3"
-                    st.success("🎉 Trap Disarmed! You earned 40 Gold!")
-                    st.session_state.gold += 40
-                else:
-                    st.session_state.audio = "https://cdn.freesound.org/previews/145/145303_2615119-lq.mp3"
-                    st.error("💥 Wrong code! Trap triggered (-20 HP)")
-                    st.session_state.health -= 20
-                st.session_state.active_puzzle = None
-                st.rerun()
+        st.sidebar.error("Not enough points!")
 
-        elif st.session_state.active_puzzle == "riddle":
-            st.write("### 🧩 Brain Challenge: Sphinx Riddle")
-            st.write("> *'The more of me you take, the more you leave behind. What am I?'*")
+if st.sidebar.button("🔮 Buy Oracle Glass (75 pts)"):
+    if st.session_state.points >= 75:
+        st.session_state.points -= 75
+        st.session_state.revealed_empty = random.randint(1, 3)
+        st.sidebar.success("Oracle Glass Activated! One trap door will be revealed.")
+    else:
+        st.sidebar.error("Not enough points!")
+
+if st.session_state.has_shield:
+    st.sidebar.info("🛡️ Ghost Shield Active")
+
+# --- Game Setup ---
+difficulty = st.radio("Choose Difficulty:", ["Easy (3 Doors)", "Medium (5 Doors)", "Hard (10 Doors)"], horizontal=True)
+num_doors = 3 if "3" in difficulty else (5 if "5" in difficulty else 10)
+
+if 'winning_door' not in st.session_state or st.session_state.get('last_num_doors') != num_doors:
+    st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
+    st.session_state.puzzle_door = int(np.random.randint(1, num_doors + 1))
+    while st.session_state.puzzle_door == st.session_state.winning_door:
+        st.session_state.puzzle_door = int(np.random.randint(1, num_doors + 1))
+    st.session_state.last_num_doors = num_doors
+
+
+# --- Render Active Brain Puzzle ---
+if st.session_state.active_puzzle:
+    st.warning("🧠 **BRAIN PUZZLE DOOR OPENED!** Solve this to win points!")
+    p_data = st.session_state.active_puzzle
+    user_ans = st.number_input(f"What is {p_data['num1']} + {p_data['num2']} x {p_data['num3']}?", value=0)
+    
+    if st.button("Submit Answer"):
+        correct_ans = p_data['num1'] + (p_data['num2'] * p_data['num3'])
+        if user_ans == correct_ans:
+            st.session_state.points += 150
+            play_sound("puzzle")
+            st.success("🎉 Correct Answer! You earned +150 Points!")
+            save_game_data(player.username, "PUZZLE_WIN", difficulty, st.session_state.points)
+        else:
+            play_sound("lose")
+            st.error(f"❌ Wrong! The answer was {correct_ans}.")
+        
+        st.session_state.active_puzzle = None
+        st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
+        st.rerun()
+
+# --- Render Doors ---
+st.markdown("### Select a Door:")
+cols = st.columns(min(num_doors, 5))
+
+for i in range(num_doors):
+    door_num = i + 1
+    col_idx = i % 5
+    
+    label = f"🚪 Door {door_num}"
+    if st.session_state.revealed_empty == door_num and door_num != st.session_state.winning_door:
+        label = f"💀 TRAP Door {door_num}"
+
+    if cols[col_idx].button(label, key=f"door_{door_num}"):
+        if door_num == st.session_state.winning_door:
+            # Treasure Door
+            play_sound("win")
+            st.balloons()
+            st.session_state.points += 100
+            st.success(f"🎉 **YOU FOUND THE TREASURE behind Door {door_num}!** (+100 Points)")
+            save_game_data(player.username, "WIN", difficulty, st.session_state.points)
+            st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
+        
+        elif door_num == st.session_state.puzzle_door:
+            # Brain Puzzle Door
+            st.session_state.active_puzzle = {
+                "num1": int(np.random.randint(5, 20)),
+                "num2": int(np.random.randint(2, 10)),
+                "num3": int(np.random.randint(2, 5))
+            }
+            st.rerun()
             
-            r_ans = st.text_input("Your Answer:", key="riddle_ans")
-            if st.button("Solve Riddle"):
-                if "footstep" in r_ans.lower() or "step" in r_ans.lower():
-                    st.session_state.audio = "https://cdn.freesound.org/previews/274/274178_5123851-lq.mp3"
-                    st.success("🎉 Correct! You were awarded 1 Key and 30 Gold!")
-                    st.session_state.keys += 1
-                    st.session_state.gold += 30
-                else:
-                    st.session_state.audio = "https://cdn.freesound.org/previews/145/145303_2615119-lq.mp3"
-                    st.error("❌ Incorrect! Darkness hits you (-15 HP)")
-                    st.session_state.health -= 15
-                st.session_state.active_puzzle = None
-                st.rerun()
+        else:
+            # Ghost Door
+            if st.session_state.has_shield:
+                st.session_state.has_shield = False
+                st.info("🛡️ A Ghost jumped out, but your Shield protected your points!")
+            else:
+                play_sound("lose")
+                st.session_state.points = max(0, st.session_state.points - 30)
+                st.error(f"👻 **GHOST!** Door {door_num} was a trap! (-30 Points)")
+                save_game_data(player.username, "LOSS", difficulty, st.session_state.points)
+            
+            st.session_state.winning_door = int(np.random.randint(1, num_doors + 1))
+
+
+# --- 4. Pandas Analytics Table ---
+st.markdown("---")
+st.subheader("📊 Game History & Leaderboard (Pandas)")
+history_data = load_game_data()
+
+if history_data:
+    df = pd.DataFrame(history_data)
+    st.dataframe(df.tail(8), use_container_width=True)
+else:
+    st.info("No game history recorded yet. Open a door!")
