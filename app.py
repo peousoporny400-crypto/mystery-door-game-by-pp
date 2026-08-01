@@ -107,8 +107,8 @@ st.title("🗝️ REALM OF MYSTERY DOORS")
 hud_col1, hud_col2, hud_col3, hud_col4 = st.columns(4)
 hud_col1.metric("💰 Treasure Points", f"{st.session_state.points} Gold")
 hud_col2.metric("❤️ Player HP", f"{st.session_state.hp} / 100")
-hud_col3.metric("🗝️ Keys", st.session_state.keys)
-hud_col4.metric("🧪 Health Potions", st.session_state.potions)
+hud_col3.metric("🗝️ Keys", f"{st.session_state.keys}")
+hud_col4.metric("🧪 Health Potions", f"{st.session_state.potions}")
 
 st.markdown("---")
 
