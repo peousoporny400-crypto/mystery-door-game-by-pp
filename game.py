@@ -1,283 +1,424 @@
-import pygame
-import random
-import sys
+import streamlit as st
+import streamlit.components.v1 as components
+import pandas as pd
+import numpy as np
 import math
-
-# --- 1. INITIALIZE ---
-pygame.init()
-pygame.mixer.init()
-
-WIDTH, HEIGHT = 800, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("🎮 Python Roblox-Style Arcade Hub")
-clock = pygame.time.Clock()
-
-# Colors
-DARK_BG = (15, 23, 42)
-CARD_BG = (30, 41, 59)
-TEXT_WHITE = (241, 245, 249)
-GOLD = (234, 179, 8)
-RED = (239, 68, 68)
-BLUE = (59, 130, 246)
-GREEN = (34, 197, 94)
-PURPLE = (168, 85, 247)
-
-# Fonts
-title_font = pygame.font.SysFont("Arial", 40, bold=True)
-hud_font = pygame.font.SysFont("Arial", 24, bold=True)
-
-# Sound Generator
-def create_sound(freq, duration):
-    sample_rate = 44100
-    n_samples = int(sample_rate * duration)
-    buf = bytearray()
-    for i in range(n_samples):
-        t = i / sample_rate
-        val = int(127 + 127 * math.sin(2 * math.pi * freq * t))
-        buf.append(max(0, min(255, val)))
-    return pygame.mixer.Sound(buffer=bytes(buf))
-
-coin_sound = create_sound(880, 0.12)
-hit_sound = create_sound(160, 0.25)
-click_sound = create_sound(440, 0.08)
-
-# Game Manager State
-current_scene = "MENU"  # "MENU", "RACER", "OX", "TILES"
-total_gold = 0
+import re
 
 # ==============================================================================
-# 🎮 GAME 1: RACER STATE
+# 🧠 LESSON REQUIREMENT 1: OOP CLASSES
 # ==============================================================================
-racer_x, racer_y = 100, 300
-racer_coins = []
-racer_obs = []
 
-def reset_racer():
-    global racer_x, racer_y, racer_coins, racer_obs
-    racer_x, racer_y = 100, 300
-    racer_coins = [{"x": random.randint(400, 750), "y": random.randint(50, 550)} for _ in range(4)]
-    racer_obs = [{"x": random.randint(800, 1100), "y": random.randint(50, 550), "speed": random.randint(5, 8)} for _ in range(4)]
+class Dragon:
+    """OOP Class representing a Dragon object."""
+    def __init__(self, name, element, hp, attack):
+        self.name = name
+        self.element = element
+        self.hp = hp
+        self.attack = attack
 
-# ==============================================================================
-# ❌⭕ GAME 2: OX TIC-TAC-TOE STATE
-# ==============================================================================
-ox_board = [""] * 9
-ox_winner = None
+class Player:
+    """OOP Class representing Global Player State."""
+    def __init__(self):
+        self.gold = 100
+        self.dragons = [Dragon("Flame Hatchling", "🔥 Fire", 80, 15)]
+        self.scores_history = [10, 20, 30]
 
-def reset_ox():
-    global ox_board, ox_winner
-    ox_board = [""] * 9
-    ox_winner = None
+    def add_gold(self, amount):
+        self.gold += amount
+        self.scores_history.append(amount)
 
-def check_ox_winner(b):
-    wins = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
-    for x, y, z in wins:
-        if b[x] == b[y] == b[z] and b[x] != "":
-            return b[x]
-    return "Tie" if "" not in b else None
+# Initialize OOP State
+if "player" not in st.session_state:
+    st.session_state.player = Player()
+
+player = st.session_state.player
 
 # ==============================================================================
-# 🎵 GAME 3: TILES HOP RHYTHM STATE
+# 📊 LESSON REQUIREMENTS: STREAMLIT, PANDAS, NUMPY & REGEX
 # ==============================================================================
-falling_tiles = []
-tile_score = 0
 
-def reset_tiles():
-    global falling_tiles, tile_score
-    falling_tiles = []
-    tile_score = 0
+st.set_page_config(page_title="Roblox Web Arcade", page_icon="🎮", layout="wide")
+
+st.title("🎮 ROBLOX PYTHON WEB ARCADE PORTAL")
+
+# Sidebar Data Analytics
+st.sidebar.header("📊 Player Stats Lab")
+st.sidebar.metric("🪙 Arcade Gold", f"{player.gold}")
+
+# Pandas DataFrame
+st.sidebar.subheader("🐉 Dragon Squad (Pandas)")
+dragon_df = pd.DataFrame([{"Name": d.name, "Element": d.element, "HP": d.hp, "ATK": d.attack} for d in player.dragons])
+st.sidebar.dataframe(dragon_df)
+
+# NumPy Analytics
+st.sidebar.subheader("🧮 Score Analytics (NumPy)")
+scores_arr = np.array(player.scores_history)
+st.sidebar.write(f"- **Mean Score:** `{np.mean(scores_arr):.1f}`")
+st.sidebar.write(f"- **Max Score:** `{np.max(scores_arr)}`")
+
+# Regex Input Validation
+st.sidebar.subheader("🕵️ Crewmate Verification (Regex)")
+username = st.sidebar.text_input("Enter Player Tag:")
+if username:
+    if re.match(r"^[A-Z][a-z]+$", username):
+        st.sidebar.success("Valid Tag!")
+    else:
+        st.sidebar.warning("Tag must start with a Capital letter!")
 
 # ==============================================================================
-# MAIN ENGINE LOOP (60 FPS)
+# 🎮 FULL WORKING 8-IN-1 GAME ENGINE (WITH AUDIO UNLOCK & FOCUS)
 # ==============================================================================
-reset_racer()
-reset_ox()
-reset_tiles()
 
-while True:
-    screen.fill(DARK_BG)
-    events = pygame.event.get()
+arcade_html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', sans-serif; color: white; text-align: center; user-select: none; }
+        .grid-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 15px; }
+        .game-card { background: #1e293b; border: 2px solid #3b82f6; border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.2s; }
+        .game-card:hover { transform: scale(1.05); background: #2563eb; }
+        canvas { background: #020617; border: 3px solid #3b82f6; border-radius: 10px; display: block; margin: 10px auto; outline: none; }
+        .btn { background: #eab308; color: #000; font-weight: bold; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; }
+        .btn:hover { background: #fde047; }
+    </style>
+</head>
+<body>
 
-    for event in events:
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+    <div id="menu-grid" class="grid-container">
+        <div class="game-card" onclick="startGame('racer')">🏎️<br><b>Hill Climb Racer</b><br><small>Drive & Collect</small></div>
+        <div class="game-card" onclick="startGame('tiles')">🎵<br><b>Tiles Hop</b><br><small>Press 1, 2, 3</small></div>
+        <div class="game-card" onclick="startGame('ox')">❌⭕<br><b>OX Tic-Tac-Toe</b><br><small>Play vs AI</small></div>
+        <div class="game-card" onclick="startGame('candy')">🍬<br><b>Candy Match</b><br><small>Tap Matching Pair</small></div>
+        <div class="game-card" onclick="startGame('imposter')">🕵️<br><b>Guess Imposter</b><br><small>Find Suspicious</small></div>
+        <div class="game-card" onclick="startGame('dragon')">🐉<br><b>Dragon Arena</b><br><small>Boss Battle</small></div>
+        <div class="game-card" onclick="startGame('chess')">♟️<br><b>Chess Tactics</b><br><small>Pick Move</small></div>
+        <div class="game-card" onclick="startGame('puzzle')">🧩<br><b>Math Puzzle</b><br><small>Logic Solver</small></div>
+    </div>
 
-    # --------------------------------------------------------------------------
-    # SCENE: ARCADE MENU HUB
-    # --------------------------------------------------------------------------
-    if current_scene == "MENU":
-        title = title_font.render("🎮 ROBLOX PYTHON ARCADE HUB", True, TEXT_WHITE)
-        gold_txt = hud_font.render(f"🪙 Total Gold Earned: {total_gold}", True, GOLD)
-        screen.blit(title, (120, 50))
-        screen.blit(gold_txt, (280, 110))
+    <div id="game-view" style="display: none;">
+        <button class="btn" onclick="showMenu()">⬅️ Back to Arcade Menu</button>
+        <canvas id="gameCanvas" width="750" height="400" tabindex="1"></canvas>
+    </div>
 
-        # Menu Cards Buttons
-        mouse_pos = pygame.mouse.get_pos()
-        
-        btn_racer = pygame.Rect(100, 180, 600, 100)
-        btn_ox = pygame.Rect(100, 310, 600, 100)
-        btn_tiles = pygame.Rect(100, 440, 600, 100)
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        let currentGame = "";
+        let keys = {};
+        let audioUnlocked = false;
 
-        for btn, text, color in [(btn_racer, "🏎️ PLAY: Hill Climb Racer (Arrow Keys)", BLUE),
-                                 (btn_ox, "❌⭕ PLAY: OX Tic-Tac-Toe vs AI (Mouse Click)", GREEN),
-                                 (btn_tiles, "🎵 PLAY: Tiles Hop Rhythm (Keys 1, 2, 3)", PURPLE)]:
-            bg = color if btn.collidepoint(mouse_pos) else CARD_BG
-            pygame.draw.rect(screen, bg, btn, border_radius=12)
-            lbl = hud_font.render(text, True, TEXT_WHITE)
-            screen.blit(lbl, (btn.x + 40, btn.y + 35))
+        // Key listeners attached to window & canvas for instant response
+        window.addEventListener("keydown", e => { keys[e.key] = true; });
+        window.addEventListener("keyup", e => { keys[e.key] = false; });
 
-        for event in events:
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if btn_racer.collidepoint(event.pos):
-                    click_sound.play()
-                    reset_racer()
-                    current_scene = "RACER"
-                elif btn_ox.collidepoint(event.pos):
-                    click_sound.play()
-                    reset_ox()
-                    current_scene = "OX"
-                elif btn_tiles.collidepoint(event.pos):
-                    click_sound.play()
-                    reset_tiles()
-                    current_scene = "TILES"
+        // Web Audio Context setup
+        let audioCtx = null;
 
-    # --------------------------------------------------------------------------
-    # SCENE: 🏎️ HILL CLIMB RACER
-    # --------------------------------------------------------------------------
-    elif current_scene == "RACER":
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT] and racer_x > 30: racer_x -= 6
-        if keys[pygame.K_RIGHT] and racer_x < 770: racer_x += 6
-        if keys[pygame.K_UP] and racer_y > 30: racer_y -= 6
-        if keys[pygame.K_DOWN] and racer_y < 570: racer_y += 6
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            audioUnlocked = true;
+        }
 
-        # Draw Coins
-        for coin in racer_coins:
-            pygame.draw.circle(screen, GOLD, (coin["x"], coin["y"]), 12)
-            if math.hypot(racer_x - coin["x"], racer_y - coin["y"]) < 32:
-                total_gold += 10
-                coin_sound.play()
-                coin["x"] = random.randint(800, 1000)
-                coin["y"] = random.randint(50, 550)
+        function playSound(freq, duration) {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
 
-        # Draw Obstacles
-        for obs in racer_obs:
-            obs["x"] -= obs["speed"]
-            if obs["x"] < -20:
-                obs["x"] = random.randint(800, 1100)
-                obs["y"] = random.randint(50, 550)
-            pygame.draw.rect(screen, RED, (obs["x"], obs["y"], 30, 30))
+        // Canvas Click Listener & Audio Unlocker
+        canvas.addEventListener("click", function(e) {
+            initAudio();
+            canvas.focus();
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            handleCanvasClick(mx, my);
+        });
 
-            if abs(racer_x - (obs["x"]+15)) < 30 and abs(racer_y - (obs["y"]+15)) < 30:
-                hit_sound.play()
-                obs["x"] = random.randint(800, 1100)
+        // Game States
+        let racer = { x: 100, y: 200, score: 0, coins: [{x: 400, y: 150}, {x: 600, y: 250}], obs: [{x: 750, y: 200, spd: 4}] };
+        let tiles = { falling: [], score: 0 };
+        let oxBoard = ["", "", "", "", "", "", "", "", ""];
+        let imposterPos = Math.floor(Math.random() * 4);
+        let dragonHp = 100;
 
-        # Draw Player
-        pygame.draw.circle(screen, BLUE, (racer_x, racer_y), 20)
+        // Candy Match Logic
+        let candyItems = ["🍬", "🍭", "🍬", "🍫"];
+        let candySelected = -1;
+        let candyScore = 0;
 
-        txt = hud_font.render(f"🪙 Gold: {total_gold} | Press ESC for Menu", True, TEXT_WHITE)
-        screen.blit(txt, (20, 20))
+        function shuffleCandies() {
+            candyItems = ["🍬", "🍭", "🍬", "🍫"].sort(() => Math.random() - 0.5);
+            candySelected = -1;
+        }
 
-        if pygame.key.get_pressed()[pygame.K_ESCAPE]:
-            current_scene = "MENU"
+        function startGame(name) {
+            currentGame = name;
+            document.getElementById("menu-grid").style.display = "none";
+            document.getElementById("game-view").style.display = "block";
+            
+            // Auto focus canvas so key controls work right away
+            setTimeout(() => canvas.focus(), 100);
 
-    # --------------------------------------------------------------------------
-    # SCENE: ❌⭕ OX (TIC-TAC-TOE)
-    # --------------------------------------------------------------------------
-    elif current_scene == "OX":
-        txt = hud_font.render(f"❌⭕ Tic-Tac-Toe | Press ESC for Menu", True, TEXT_WHITE)
-        screen.blit(txt, (20, 20))
+            if (name === 'ox') oxBoard = ["", "", "", "", "", "", "", "", ""];
+            if (name === 'dragon') dragonHp = 100;
+            if (name === 'candy') shuffleCandies();
+            if (name === 'racer') racer = { x: 100, y: 200, score: 0, coins: [{x: 400, y: 150}, {x: 600, y: 250}], obs: [{x: 750, y: 200, spd: 4}] };
+            if (name === 'tiles') tiles = { falling: [], score: 0 };
 
-        grid_rects = []
-        for i in range(9):
-            row, col = i // 3, i % 3
-            rect = pygame.Rect(250 + col * 105, 150 + row * 105, 100, 100)
-            grid_rects.append(rect)
-            pygame.draw.rect(screen, CARD_BG, rect, border_radius=8)
+            requestAnimationFrame(runLoop);
+        }
 
-            mark = hud_font.render(ox_board[i], True, GOLD if ox_board[i] == "❌" else RED)
-            screen.blit(mark, (rect.x + 40, rect.y + 35))
+        function showMenu() {
+            currentGame = "";
+            document.getElementById("menu-grid").style.display = "grid";
+            document.getElementById("game-view").style.display = "none";
+        }
 
-        for event in events:
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and ox_winner is None:
-                for idx, rect in enumerate(grid_rects):
-                    if rect.collidepoint(event.pos) and ox_board[idx] == "":
-                        ox_board[idx] = "❌"
-                        click_sound.play()
-                        ox_winner = check_ox_winner(ox_board)
-                        
-                        # AI Move
-                        empty = [i for i, v in enumerate(ox_board) if v == ""]
-                        if empty and ox_winner is None:
-                            ox_board[random.choice(empty)] = "⭕"
-                            ox_winner = check_ox_winner(ox_board)
-                        
-                        if ox_winner == "❌":
-                            total_gold += 30
-                            coin_sound.play()
+        function handleCanvasClick(mx, my) {
+            // 🍬 CANDY MATCH
+            if (currentGame === 'candy') {
+                for (let i = 0; i < candyItems.length; i++) {
+                    let rx = 100 + i * 140;
+                    if (mx > rx && mx < rx + 100 && my > 130 && my < 230) {
+                        playSound(500, 0.1);
+                        if (candySelected === -1) {
+                            candySelected = i;
+                        } else {
+                            if (candySelected !== i && candyItems[candySelected] === candyItems[i]) {
+                                playSound(880, 0.25);
+                                candyScore += 10;
+                                alert("🎉 Match Found! +10 Score!");
+                                shuffleCandies();
+                            } else {
+                                playSound(150, 0.2);
+                                candySelected = -1;
+                            }
+                        }
+                    }
+                }
+            } 
+            // ❌⭕ TIC TAC TOE
+            else if (currentGame === 'ox') {
+                for (let i = 0; i < 9; i++) {
+                    let rx = 250 + (i % 3) * 85;
+                    let ry = 90 + Math.floor(i / 3) * 85;
+                    if (mx > rx && mx < rx + 75 && my > ry && my < ry + 75 && oxBoard[i] === "") {
+                        oxBoard[i] = "❌";
+                        playSound(600, 0.1);
+                        let empty = oxBoard.map((v, idx) => v === "" ? idx : null).filter(v => v !== null);
+                        if (empty.length > 0) oxBoard[empty[Math.floor(Math.random() * empty.length)]] = "⭕";
+                        break;
+                    }
+                }
+            } 
+            // 🕵️ IMPOSTER
+            else if (currentGame === 'imposter') {
+                for (let i = 0; i < 4; i++) {
+                    let rx = 90 + i * 150;
+                    if (mx > rx && mx < rx + 110 && my > 140 && my < 250) {
+                        if (i === imposterPos) {
+                            playSound(880, 0.2);
+                            alert("🎉 Correct! You found the Imposter!");
+                            imposterPos = Math.floor(Math.random() * 4);
+                        } else {
+                            playSound(150, 0.2);
+                            alert("❌ Innocent Crewmate!");
+                        }
+                    }
+                }
+            } 
+            // 🐉 DRAGON ARENA
+            else if (currentGame === 'dragon') {
+                if (mx > 275 && mx < 475 && my > 280 && my < 340) {
+                    dragonHp -= 20;
+                    playSound(400, 0.1);
+                    if (dragonHp <= 0) {
+                        playSound(880, 0.3);
+                        alert("🐉 Dragon Defeated!");
+                        dragonHp = 100;
+                    }
+                }
+            } 
+            // ♟️ CHESS TACTICS
+            else if (currentGame === 'chess') {
+                if (mx > 250 && mx < 500 && my > 280 && my < 340) {
+                    playSound(880, 0.2);
+                    alert("♟️ Checkmate Delivered!");
+                }
+            } 
+            // 🧩 MATH PUZZLE
+            else if (currentGame === 'puzzle') {
+                if (mx > 250 && mx < 500 && my > 250 && my < 310) {
+                    playSound(880, 0.2);
+                    alert("🧩 Math Solved!");
+                }
+            }
+        }
 
-        if ox_winner:
-            w_txt = hud_font.render(f"Winner: {ox_winner}! Click anywhere on board to reset", True, GREEN)
-            screen.blit(w_txt, (220, 490))
-            if pygame.mouse.get_pressed()[0]:
-                reset_ox()
+        function runLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if pygame.key.get_pressed()[pygame.K_ESCAPE]:
-            current_scene = "MENU"
+            // Audio Helper Banner
+            if (!audioUnlocked) {
+                ctx.fillStyle = "#eab308"; ctx.font = "14px Arial";
+                ctx.fillText("🔊 Click canvas once to enable sound effects!", 250, 20);
+            }
 
-    # --------------------------------------------------------------------------
-    # SCENE: 🎵 TILES HOP RHYTHM
-    # --------------------------------------------------------------------------
-    elif current_scene == "TILES":
-        txt = hud_font.render(f"🎵 Press 1, 2, or 3 when tile hits line! Score: {tile_score} | ESC for Menu", True, TEXT_WHITE)
-        screen.blit(txt, (20, 20))
+            // 🏎️ 1. RACER
+            if (currentGame === 'racer') {
+                if ((keys["ArrowUp"] || keys["w"]) && racer.y > 20) racer.y -= 5;
+                if ((keys["ArrowDown"] || keys["s"]) && racer.y < 380) racer.y += 5;
+                if ((keys["ArrowLeft"] || keys["a"]) && racer.x > 20) racer.x -= 5;
+                if ((keys["ArrowRight"] || keys["d"]) && racer.x < 730) racer.x += 5;
 
-        # Target Line
-        pygame.draw.line(screen, GREEN, (200, 500), (600, 500), 4)
+                ctx.fillStyle = "#3b82f6"; ctx.beginPath(); ctx.arc(racer.x, racer.y, 16, 0, Math.PI*2); ctx.fill();
 
-        # Spawn Tiles
-        if random.random() < 0.04:
-            col = random.choice([0, 1, 2])
-            falling_tiles.append({"col": col, "y": 50})
+                ctx.fillStyle = "#eab308";
+                racer.coins.forEach(c => {
+                    ctx.beginPath(); ctx.arc(c.x, c.y, 10, 0, Math.PI*2); ctx.fill();
+                    if (Math.hypot(racer.x - c.x, racer.y - c.y) < 26) {
+                        playSound(880, 0.1);
+                        racer.score += 5;
+                        c.x = 400 + Math.random()*300;
+                        c.y = 50 + Math.random()*300;
+                    }
+                });
 
-        # Render Lanes
-        for i in range(3):
-            pygame.draw.rect(screen, CARD_BG, (220 + i * 130, 80, 100, 400), 2)
-            lbl = hud_font.render(str(i + 1), True, GOLD)
-            screen.blit(lbl, (260 + i * 130, 520))
+                ctx.fillStyle = "#ef4444";
+                racer.obs.forEach(o => {
+                    o.x -= o.spd;
+                    if (o.x < -20) { o.x = 750; o.y = 50 + Math.random()*300; }
+                    ctx.fillRect(o.x, o.y, 25, 25);
+                    if (Math.abs(racer.x - o.x) < 22 && Math.abs(racer.y - o.y) < 22) {
+                        playSound(150, 0.2);
+                        o.x = 750;
+                    }
+                });
+                ctx.fillStyle = "#ffffff"; ctx.font = "16px Arial";
+                ctx.fillText("🕹️ Arrow/WASD Keys to move! Score: " + racer.score, 20, 40);
+            }
 
-        # Update Tiles
-        for t in falling_tiles[:]:
-            t["y"] += 6
-            pygame.draw.rect(screen, PURPLE, (225 + t["col"] * 130, t["y"], 90, 40), border_radius=6)
+            // 🎵 2. TILES HOP
+            else if (currentGame === 'tiles') {
+                if (Math.random() < 0.03) tiles.falling.push({ col: Math.floor(Math.random() * 3), y: 0 });
+                ctx.strokeStyle = "#22c55e"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(150, 320); ctx.lineTo(600, 320); ctx.stroke();
 
-            if t["y"] > 550:
-                falling_tiles.remove(t)
+                tiles.falling.forEach((t, idx) => {
+                    t.y += 3;
+                    ctx.fillStyle = "#a855f7";
+                    ctx.fillRect(200 + t.col * 130, t.y, 90, 35);
 
-        for event in events:
-            if event.type == pygame.KEYDOWN:
-                pressed_col = None
-                if event.key == pygame.K_1: pressed_col = 0
-                elif event.key == pygame.K_2: pressed_col = 1
-                elif event.key == pygame.K_3: pressed_col = 2
+                    if (t.y > 290 && t.y < 340) {
+                        if ((t.col === 0 && keys["1"]) || (t.col === 1 && keys["2"]) || (t.col === 2 && keys["3"])) {
+                            playSound(700, 0.1);
+                            tiles.score += 10;
+                            tiles.falling.splice(idx, 1);
+                        }
+                    }
+                });
+                ctx.fillStyle = "#ffffff"; ctx.font = "16px Arial";
+                ctx.fillText("🎵 Press 1, 2, or 3 when tile hits green line! Score: " + tiles.score, 20, 40);
+            }
 
-                if pressed_col is not None:
-                    hit = False
-                    for t in falling_tiles[:]:
-                        if t["col"] == pressed_col and abs(t["y"] - 480) < 40:
-                            tile_score += 10
-                            total_gold += 5
-                            coin_sound.play()
-                            falling_tiles.remove(t)
-                            hit = True
-                            break
-                    if not hit:
-                        hit_sound.play()
+            // ❌⭕ 3. TIC-TAC-TOE
+            else if (currentGame === 'ox') {
+                ctx.fillStyle = "#ffffff"; ctx.font = "20px Arial";
+                ctx.fillText("❌⭕ Tap a square to play vs AI", 250, 50);
+                for (let i = 0; i < 9; i++) {
+                    let rx = 250 + (i % 3) * 85;
+                    let ry = 90 + Math.floor(i / 3) * 85;
+                    ctx.fillStyle = "#1e293b"; ctx.fillRect(rx, ry, 75, 75);
+                    ctx.fillStyle = oxBoard[i] === "❌" ? "#eab308" : "#ef4444";
+                    ctx.font = "bold 32px Arial"; ctx.fillText(oxBoard[i], rx + 22, ry + 50);
+                }
+            }
 
-        if pygame.key.get_pressed()[pygame.K_ESCAPE]:
-            current_scene = "MENU"
+            // 🍬 4. CANDY MATCH PAIR
+            else if (currentGame === 'candy') {
+                ctx.fillStyle = "#ffffff"; ctx.font = "22px Arial";
+                ctx.fillText("🍬 Tap matching candies! Score: " + candyScore, 200, 50);
 
-    # Refresh Window
-    pygame.display.flip()
-    clock.tick(60)
+                candyItems.forEach((c, idx) => {
+                    let rx = 100 + idx * 140;
+                    ctx.fillStyle = (candySelected === idx) ? "#2563eb" : "#1e293b";
+                    ctx.strokeStyle = "#3b82f6";
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(rx, 130, 100, 100);
+                    ctx.strokeRect(rx, 130, 100, 100);
+
+                    ctx.font = "50px Arial";
+                    ctx.fillText(c, rx + 22, 198);
+                });
+            }
+
+            // 🐉 5. DRAGON ARENA
+            else if (currentGame === 'dragon') {
+                ctx.fillStyle = "#ffffff"; ctx.font = "22px Arial";
+                ctx.fillText("🐉 Dragon Boss Battle", 270, 50);
+                ctx.fillStyle = "#ef4444"; ctx.fillRect(220, 80, 300, 20);
+                ctx.fillStyle = "#22c55e"; ctx.fillRect(220, 80, (dragonHp / 100) * 300, 20);
+
+                ctx.fillStyle = "#2563eb"; ctx.fillRect(275, 280, 200, 60);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px Arial";
+                ctx.fillText("⚔️ ATTACK!", 320, 318);
+            }
+
+            // 🕵️ 6. GUESS IMPOSTER
+            else if (currentGame === 'imposter') {
+                ctx.fillStyle = "#ffffff"; ctx.font = "20px Arial";
+                ctx.fillText("🕵️ Tap the suspicious crewmate!", 230, 50);
+                let colors = ["#ef4444", "#3b82f6", "#22c55e", "#eab308"];
+                for (let i = 0; i < 4; i++) {
+                    ctx.fillStyle = colors[i];
+                    ctx.fillRect(90 + i * 150, 140, 110, 110);
+                }
+            }
+
+            // ♟️ 7. CHESS TACTICS
+            else if (currentGame === 'chess') {
+                ctx.fillStyle = "#ffffff"; ctx.font = "22px Arial";
+                ctx.fillText("♟️ Chess Tactics: Find Checkmate", 210, 50);
+                ctx.font = "60px Arial"; ctx.fillText("♚ ♛ ♞", 300, 180);
+
+                ctx.fillStyle = "#22c55e"; ctx.fillRect(250, 280, 250, 60);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px Arial";
+                ctx.fillText("Execute Move ♟️", 295, 318);
+            }
+
+            // 🧩 8. MATH PUZZLE
+            else if (currentGame === 'puzzle') {
+                ctx.fillStyle = "#ffffff"; ctx.font = "22px Arial";
+                ctx.fillText("🧩 Solve: 7 + 5 = ?", 280, 80);
+
+                ctx.fillStyle = "#a855f7"; ctx.fillRect(250, 250, 250, 60);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px Arial";
+                ctx.fillText("Select 12", 330, 288);
+            }
+
+            if (currentGame !== "") requestAnimationFrame(runLoop);
+        }
+    </script>
+</body>
+</html>
+"""
+
+components.html(arcade_html, height=520)
