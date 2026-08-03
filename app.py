@@ -120,68 +120,31 @@ def show_dashboard():
 # ==============================================================================
 # 🧠 LESSON REQUIREMENT 1: OOP CLASSES
 # ==============================================================================
+# --- Her Trees: The Puzzle House Game Section ---
 
-class Dragon:
-    """OOP Class representing a Dragon object."""
-    def __init__(self, name, element, hp, attack):
-        self.name = name
-        self.element = element
-        self.hp = hp
-        self.attack = attack
+st.subheader("🧩 Her Trees: The Puzzle House")
+
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    st.markdown("### 🖼️ *Her Trees*")
+    st.caption("Monochrome Point & Click Puzzle")
+
+with col2:
+    st.markdown("**Developer:** Stone")
+    st.markdown("**Genre:** Escape Room / Logic & Spatial Puzzles")
+    st.write(
+        "Step into a mysterious, hand-drawn black-and-white world. "
+        "Examine surrounding patterns, deduce numerical and symbol combinations, "
+        "and unlock secrets within the puzzle house."
+    )
+    st.link_button(
+        "Play Her Trees on Steam",
+        "https://store.steampowered.com/app/2711010/HER_TREES_The_Puzzle_House/"
+    )
 
 
-# ==============================================================================
-# 🧠 LESSON REQUIREMENT 1: OOP CLASSES
-# ==============================================================================
 
-class Dragon:
-    """OOP Class representing a Dragon object."""
-    def __init__(self, name, element, hp, attack):
-        self.name = name
-        self.element = element
-        self.hp = hp
-        self.attack = attack
-
-
-class Player:
-    """OOP Class representing Global Player State."""
-    def __init__(self):
-        self.gold = 100
-        self.dragons = [Dragon("Flame Hatchling", "🔥 Fire", 80, 15)]
-        self.scores_history = [10, 20, 30]
-
-    def add_gold(self, amount):
-        self.gold += amount
-        self.scores_history.append(amount)
-
-# Initialize OOP State
-if "player" not in st.session_state:
-    st.session_state.player = Player()
-
-player = st.session_state.player
-
-# ==============================================================================
-# 📊 LESSON REQUIREMENTS: STREAMLIT, PANDAS, NUMPY & REGEX
-# ==============================================================================
-
-st.set_page_config(page_title="multi-game", page_icon="🎮", layout="wide")
-
-st.title("🎮 multi-game -f")
-
-# Sidebar Data Analytics
-st.sidebar.header("📊 Player Stats Lab")
-st.sidebar.metric("🪙 Arcade Gold", f"{player.gold}")
-
-# Pandas DataFrame
-st.sidebar.subheader("🐉 Dragon Squad (Pandas)")
-dragon_df = pd.DataFrame([{"Name": d.name, "Element": d.element, "HP": d.hp, "ATK": d.attack} for d in player.dragons])
-st.sidebar.dataframe(dragon_df)
-
-# NumPy Analytics
-st.sidebar.subheader("🧮 Score Analytics (NumPy)")
-scores_arr = np.array(player.scores_history)
-st.sidebar.write(f"- **Mean Score:** `{np.mean(scores_arr):.1f}`")
-st.sidebar.write(f"- **Max Score:** `{np.max(scores_arr)}`")
 
 # Regex Input Validation
 st.sidebar.subheader("🕵️ Crewmate Verification (Regex)")
