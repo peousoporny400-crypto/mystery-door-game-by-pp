@@ -25,127 +25,6 @@ def show_dashboard():
 
     st.divider()
 
-    # 2. Featured Game Spotlight: Her Trees: The Puzzle House
-    st.subheader("🧩 Featured Game: Her Trees: The Puzzle House")
-    
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        st.markdown("### 🖼️ *Her Trees*")
-        st.caption("Monochrome Point & Click Puzzle")
-
-    with col2:
-        st.markdown("**Developer:** Stone")
-        st.markdown("**Genre:** Escape Room / Logic & Spatial Puzzles")
-        st.write(
-            "Step into a mysterious, hand-drawn black-and-white world. "
-            "Examine surrounding patterns, deduce numerical and symbol combinations, "
-            "and unlock secrets within the puzzle house."
-        )
-        st.link_button("Play Her Trees on Steam", "https://store.steampowered.com/app/2711010/HER_TREES_The_Puzzle_House/")
-
-    st.divider()
-
-
-    # 2. Economy & Stats Metric Cards
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("🪙 Coins Balance", user["coins"])
-    m2.metric("🔑 Mystery Keys", user["inventory"].count("Key"))
-    m3.metric("🎒 Items Owned", len(user["inventory"]))
-    m4.metric("🏆 Global Rank", "#42")
-
-    st.divider()
-
-    # 3. Daily Login Reward Claim System
-    st.subheader("🎁 Daily Rewards")
-    if not user.get("daily_claimed", False):
-        if st.button("✨ Claim Daily Bonus (+100 Coins)", type="primary"):
-            user["coins"] += 100
-            user["daily_claimed"] = True
-            st.toast("🎉 Claimed 100 Daily Coins!", icon="🪙")
-            st.rerun()
-    else:
-        st.success("✅ Today's daily reward already claimed! Come back tomorrow.")
-
-    st.divider()
-
-    # 4. Quick Game Launcher & Daily Missions
-    c_left, c_right = st.columns([2, 1])
-
-    with c_left:
-        st.subheader("🎮 Featured Games")
-        
-        g_col1, g_col2 = st.columns(2)
-        with g_col1:
-            with st.container(border=True):
-                st.markdown("### 🚪 Mystery Door")
-                st.caption("Pick the right door, avoid traps, win loot!")
-                if st.button("Play Now", key="btn_door"):
-                    st.session_state.current_page = "Mystery Door"
-                    st.rerun()
-
-            with st.container(border=True):
-                st.markdown("### 🕵️ Find Imposter")
-                st.caption("Locate the imposter in minimum clicks.")
-                if st.button("Play Now", key="btn_imposter"):
-                    st.session_state.current_page = "Find Imposter"
-                    st.rerun()
-
-        with g_col2:
-            with st.container(border=True):
-                st.markdown("### ⌨️ Typing Race")
-                st.caption("Test your speed against time.")
-                if st.button("Play Now", key="btn_typing"):
-                    st.session_state.current_page = "Typing Race"
-                    st.rerun()
-
-            with st.container(border=True):
-                st.markdown("### 🧩 Memory Match")
-                st.caption("Flip cards & find matching pairs.")
-                if st.button("Play Now", key="btn_memory"):
-                    st.session_state.current_page = "Memory Match"
-                    st.rerun()
-
-    with c_right:
-        st.subheader("📜 Daily Quests")
-        with st.container(border=True):
-            st.markdown("✔️ **First Win of the Day**")
-            st.caption("Reward: +50 Coins | +20 XP")
-            
-            st.markdown("⏳ **Play 3 Mini-Games** (1/3)")
-            st.caption("Reward: +100 Coins")
-            
-            st.markdown("⏳ **Crack 1 Code Breaker** (0/1)")
-            st.caption("Reward: +1 Mystery Key")
-# ==============================================================================
-# 🧠 LESSON REQUIREMENT 1: OOP CLASSES
-# ==============================================================================
-# --- Her Trees: The Puzzle House Game Section ---
-
-st.subheader("🧩 Her Trees: The Puzzle House")
-
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    st.markdown("### 🖼️ *Her Trees*")
-    st.caption("Monochrome Point & Click Puzzle")
-
-with col2:
-    st.markdown("**Developer:** Stone")
-    st.markdown("**Genre:** Escape Room / Logic & Spatial Puzzles")
-    st.write(
-        "Step into a mysterious, hand-drawn black-and-white world. "
-        "Examine surrounding patterns, deduce numerical and symbol combinations, "
-        "and unlock secrets within the puzzle house."
-    )
-    st.link_button(
-        "Play Her Trees on Steam",
-        "https://store.steampowered.com/app/2711010/HER_TREES_The_Puzzle_House/"
-    )
-
-
-
-
 # Regex Input Validation
 st.sidebar.subheader("🕵️ Crewmate Verification (Regex)")
 username = st.sidebar.text_input("Enter Player Tag:")
@@ -182,7 +61,7 @@ arcade_html = """
         <div class="game-card" onclick="startGame('candy')">🍬<br><b>Candy Match</b><br><small>Tap Matching Pair</small></div>
         <div class="game-card" onclick="startGame('imposter')">🕵️<br><b>Guess Imposter</b><br><small>Find Suspicious</small></div>
         <div class="game-card" onclick="startGame('dragon')">🐉<br><b>Dragon Arena</b><br><small>Boss Battle</small></div>
-        <div class="game-card" onclick="startGame('chess')">♟️<br><b>Chess Tactics</b><br><small>Pick Move</small></div>
+        <div class="game-card" onclick="startGame('Fish')">🎣<br><b>Fish Catcher</b><br><small>Catch Fish</small></div>
         <div class="game-card" onclick="startGame('puzzle')">🧩<br><b>Math Puzzle</b><br><small>Logic Solver</small></div>
     </div>
 
@@ -346,13 +225,16 @@ arcade_html = """
                     }
                 }
             } 
-            // ♟️ CHESS TACTICS
-            else if (currentGame === 'chess') {
-                if (mx > 250 && mx < 500 && my > 280 && my < 340) {
-                    playSound(880, 0.2);
-                    alert("♟️ Checkmate Delivered!");
+            // Fish catching
+            else if (currentGame === 'Fish') {
+                if (mx > 250 && mx < 500 && my > 280 && my < 380) { // adjust 'my' coordinates as needed
+                    playSound(600, 0.15); // optional sound effect
+                    alert("🎣 You caught a fish! +20 Gold");
+        
+                    // If you are tracking scores/gold:
+                   // score += 20; 
                 }
-            } 
+            }
             // 🧩 MATH PUZZLE
             else if (currentGame === 'puzzle') {
                 if (mx > 250 && mx < 500 && my > 250 && my < 310) {
@@ -459,17 +341,6 @@ arcade_html = """
                 });
             }
 
-            // 🐉 5. DRAGON ARENA
-            else if (currentGame === 'dragon') {
-                ctx.fillStyle = "#ffffff"; ctx.font = "22px Arial";
-                ctx.fillText("🐉 Dragon Boss Battle", 270, 50);
-                ctx.fillStyle = "#ef4444"; ctx.fillRect(220, 80, 300, 20);
-                ctx.fillStyle = "#22c55e"; ctx.fillRect(220, 80, (dragonHp / 100) * 300, 20);
-
-                ctx.fillStyle = "#2563eb"; ctx.fillRect(275, 280, 200, 60);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px Arial";
-                ctx.fillText("⚔️ ATTACK!", 320, 318);
-            }
 
             // 🕵️ 6. GUESS IMPOSTER
             else if (currentGame === 'imposter') {
@@ -482,16 +353,26 @@ arcade_html = """
                 }
             }
 
-            // ♟️ 7. CHESS TACTICS
-            else if (currentGame === 'chess') {
-                ctx.fillStyle = "#ffffff"; ctx.font = "22px Arial";
-                ctx.fillText("♟️ Chess Tactics: Find Checkmate", 210, 50);
-                ctx.font = "60px Arial"; ctx.fillText("♚ ♛ ♞", 300, 180);
+     // 🎣 7. FISH CATCHER
+else if (currentGame === 'Fish') {
+    // Title
+    ctx.fillStyle = "#ffffff"; 
+    ctx.font = "22px Arial";
+    ctx.fillText("🎣 Catching Fish: Tap to Catch!", 210, 50);
+    
+    // Fish Icons / Visual
+    ctx.font = "60px Arial"; 
+    ctx.fillText("🐟  🎣  🐠", 280, 180);
 
-                ctx.fillStyle = "#22c55e"; ctx.fillRect(250, 280, 250, 60);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px Arial";
-                ctx.fillText("Execute Move ♟️", 295, 318);
-            }
+    // Green Catch Button
+    ctx.fillStyle = "#22c55e"; 
+    ctx.fillRect(250, 280, 250, 60);
+    
+    // Button Text
+    ctx.fillStyle = "#ffffff"; 
+    ctx.font = "bold 20px Arial";
+    ctx.fillText("Cast Line 🎣", 315, 318);
+}
 
             // 🧩 8. MATH PUZZLE
             else if (currentGame === 'puzzle') {
@@ -506,9 +387,6 @@ arcade_html = """
             if (currentGame !== "") requestAnimationFrame(runLoop);
         }
    
-        import pandas as pd
-import streamlit as st
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Catching Fish Game", page_icon="🎣", layout="wide")
 
