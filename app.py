@@ -5,25 +5,47 @@ import numpy as np
 import math
 import re
 
+import streamlit as st
+import streamlit.components.v1 as components
+import pandas as pd
+import numpy as np
+import math
+import re
 
 def show_dashboard():
     # 1. Player Header
     user = st.session_state.user
-    
+
     st.title(f"👋 Welcome Back, {user['username']}!")
-    
+
     # Level & XP Progress Bar
     next_level_xp = user["level"] * 100
     xp_progress = min(1.0, user["xp"] / next_level_xp)
-    
-    col_level, col_bar = st.columns([1, 4])
-    with col_level:
-        st.subheader(f"⭐ Level {user['level']}")
-    with col_bar:
-        st.caption(f"XP: {user['xp']} / {next_level_xp}")
-        st.progress(xp_progress)
+    st.progress(xp_progress, text=f"Level {user['level']} Progress ({user['xp']}/{next_level_xp} XP)")
 
     st.divider()
+
+    # 2. Featured Game Spotlight: Her Trees: The Puzzle House
+    st.subheader("🧩 Featured Game: Her Trees: The Puzzle House")
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("### 🖼️ *Her Trees*")
+        st.caption("Monochrome Point & Click Puzzle")
+
+    with col2:
+        st.markdown("**Developer:** Stone")
+        st.markdown("**Genre:** Escape Room / Logic & Spatial Puzzles")
+        st.write(
+            "Step into a mysterious, hand-drawn black-and-white world. "
+            "Examine surrounding patterns, deduce numerical and symbol combinations, "
+            "and unlock secrets within the puzzle house."
+        )
+        st.link_button("Play Her Trees on Steam", "https://store.steampowered.com/app/2711010/HER_TREES_The_Puzzle_House/")
+
+    st.divider()
+
 
     # 2. Economy & Stats Metric Cards
     m1, m2, m3, m4 = st.columns(4)
