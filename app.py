@@ -505,6 +505,653 @@ arcade_html = """
 
             if (currentGame !== "") requestAnimationFrame(runLoop);
         }
+   
+        import pandas as pd
+import streamlit as st
+import streamlit.components.v1 as components
+
+st.set_page_config(page_title="Catching Fish Game", page_icon="🎣", layout="wide")
+
+st.title("🎣 Deep Sea Fishing Game")
+st.caption(
+    "Use your keyboard or mouse to catch as many fish as possible before time runs out!"
+)
+
+# Sidebar Stats & High Scores using Pandas
+st.sidebar.header("🏆 Player Dashboard")
+st.sidebar.metric("Target Score", "100 pts")
+
+# Game HTML, CSS, and JS engine
+fishing_game_html = """
+
+st.set_page_config(page_title="Catching Fish Game", page_icon="🎣", layout="wide")
+
+st.title("🎣 Deep Sea Fishing Game")
+st.caption(
+    "Use your keyboard or mouse to catch as many fish as possible before time runs out!"
+)
+
+# Sidebar Stats & High Scores using Pandas
+st.sidebar.header("🏆 Player Dashboard")
+st.sidebar.metric("Target Score", "100 pts")
+
+# Game HTML, CSS, and JS engine
+fishing_game_html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            text-align: center;
+            user-select: none;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #38bdf8 0%, #0284c7 25%, #0369a1 60%, #0c4a6e 100%);
+            border: 3px solid #0284c7;
+            border-radius: 12px;
+            display: block;
+            margin: 10px auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            outline: none;
+        }
+        .controls-hint {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .btn-restart {
+            background: #f59e0b;
+            color: #000;
+            font-weight: bold;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-restart:hover {
+            background: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls-hint">
+        💡 <b>Controls:</b> Move Boat: <b>[A / D]</b> or <b>[Left / Right Arrows]</b> | Drop/Reel Hook: <b>[SPACEBAR]</b> or <b>Click Canvas</b>
+    </div>
+
+    <canvas id="fishCanvas" width="750" height="480" tabindex="1"></canvas>
+    <button class="btn-restart" onclick="resetGame()">🔄 Reset Game</button>
+
+    <script>
+        const canvas = document.getElementById("fishCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Game Variables
+        let score = 0;
+        let timeLeft = 60;
+        let gameOver = false;
+        let keys = {};
+
+        // Boat Properties
+        const boat = {
+            x: 340,
+            y: 40,
+            width: 70,
+            height: 20,
+            speed: 5
+        };
+
+        // Hook / Line Properties
+        const hook = {
+            x: 375,
+            y: 60,
+            startY: 60,
+            length: 0,
+            maxDepth: 420,
+            speed: 6,
+            state: "idle", // "idle", "dropping", "reeling"
+            caughtFish: null
+        };
+
+        // Fish Types & Spawning
+        const fishTypes = [
+            { name: "Small Fry", color: "#facc15", size: 14, speed: 2.5, points: 10 },
+            { name: "Bass", color: "#f97316", size: 20, speed: 1.8, points: 20 },
+            { name: "Rare Blue", color: "#a855f7", size: 26, speed: 3.0, points: 50 },
+            { name: "Golden Fish", color: "#ef4444", size: 18, speed: 3.5, points: 100 }
+        ];
+
+        let fishes = [];
+
+        function spawnFish() {
+            if (fishes.length < 8) {
+                const type = fishTypes[Math.floor(Math.random() * fishTypes.length)];
+                const dir = Math.random() < 0.5 ? 1 : -1;
+                fishes.push({
+                    x: dir === 1 ? -30 : canvas.width + 30,
+                    y: 110 + Math.random() * 320,
+                    dir: dir,
+                    ...type
+                });
+            }
+        }
+
+        // Input Handlers
+        window.addEventListener("keydown", e => { 
+            keys[e.key] = true; 
+            if (e.key === " " || e.code === "Space") {
+                e.preventDefault();
+                triggerHook();
+            }
+        });
+
+        window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+        canvas.addEventListener("click", function() {
+            canvas.focus();
+            triggerHook();
+        });
+
+        function triggerHook() {
+            if (gameOver) return;
+            if (hook.state === "idle") {
+                hook.state = "dropping";
+            } else if (hook.state === "dropping") {
+                hook.state = "reeling";
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            timeLeft = 60;
+            gameOver = false;
+            fishes = [];
+            hook.state = "idle";
+            hook.y = hook.startY;
+            hook.caughtFish = null;
+            boat.x = 340;
+            canvas.focus();
+        }
+
+        // Timer Interval
+        setInterval(() => {
+            if (!gameOver && timeLeft > 0) {
+                timeLeft--;
+                if (timeLeft === 0) gameOver = true;
+            }
+        }, 1000);
+
+        // Main Loop
+        function update() {
+            if (!gameOver) {
+                // Move Boat (only when hook is idle)
+                if (hook.state === "idle") {
+                    if ((keys["ArrowLeft"] || keys["a"] || keys["A"]) && boat.x > 10) {
+                        boat.x -= boat.speed;
+                    }
+                    if ((keys["ArrowRight"] || keys["d"] || keys["D"]) && boat.x < canvas.width - boat.width - 10) {
+                        boat.x += boat.speed;
+                    }
+                    hook.x = boat.x + boat.width / 2;
+                }
+
+                // Handle Hook Drop & Reel
+                if (hook.state === "dropping") {
+                    hook.y += hook.speed;
+                    if (hook.y >= hook.maxDepth) {
+                        hook.state = "reeling";
+                    }
+                } else if (hook.state === "reeling") {
+                    hook.y -= hook.speed;
+                    if (hook.caughtFish) {
+                        hook.caughtFish.x = hook.x;
+                        hook.caughtFish.y = hook.y + 10;
+                    }
+                    if (hook.y <= hook.startY) {
+                        hook.state = "idle";
+                        hook.y = hook.startY;
+                        if (hook.caughtFish) {
+                            score += hook.caughtFish.points;
+                            hook.caughtFish = null;
+                        }
+                    }
+                }
+
+                // Update Fish Positions
+                fishes.forEach((f, idx) => {
+                    if (f !== hook.caughtFish) {
+                        f.x += f.speed * f.dir;
+                    }
+
+                    // Check Collision with Hook
+                    if (hook.state === "dropping" && !hook.caughtFish) {
+                        let dist = Math.hypot(hook.x - f.x, hook.y - f.y);
+                        if (dist < f.size + 8) {
+                            hook.caughtFish = f;
+                            hook.state = "reeling";
+                        }
+                    }
+
+                    // Remove Out of Bounds Fish
+                    if ((f.dir === 1 && f.x > canvas.width + 50) || (f.dir === -1 && f.x < -50)) {
+                        if (f !== hook.caughtFish) fishes.splice(idx, 1);
+                    }
+                });
+
+                spawnFish();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Sky & Water surface line
+            ctx.fillStyle = "#38bdf8";
+            ctx.fillRect(0, 0, canvas.width, 50);
+            ctx.fillStyle = "#0284c7";
+            ctx.fillRect(0, 50, canvas.width, 4);
+
+            // Draw Boat
+            ctx.fillStyle = "#78350f";
+            ctx.beginPath();
+            ctx.moveTo(boat.x, boat.y);
+            ctx.lineTo(boat.x + boat.width, boat.y);
+            ctx.lineTo(boat.x + boat.width - 12, boat.y + boat.height);
+            ctx.lineTo(boat.x + 12, boat.y + boat.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw Fisherman / Stick
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(boat.x + 35, boat.y - 10);
+            ctx.lineTo(boat.x + 35, boat.y);
+            ctx.stroke();
+
+            // Draw Fishing Line
+            ctx.strokeStyle = "#e2e8f0";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(hook.x, hook.startY);
+            ctx.lineTo(hook.x, hook.y);
+            ctx.stroke();
+
+            // Draw Hook
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(hook.x - 4, hook.y, 4, 0, Math.PI);
+            ctx.stroke();
+
+            // Draw Fishes
+            fishes.forEach(f => {
+                ctx.fillStyle = f.color;
+                ctx.beginPath();
+                ctx.ellipse(f.x, f.y, f.size, f.size / 1.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Tail
+                ctx.beginPath();
+                let tailX = f.x - (f.size * f.dir);
+                ctx.moveTo(tailX, f.y);
+                ctx.lineTo(tailX - (8 * f.dir), f.y - 6);
+                ctx.lineTo(tailX - (8 * f.dir), f.y + 6);
+                ctx.closePath();
+                ctx.fill();
+
+                // Eye
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(f.x + (f.size / 2 * f.dir), f.y - 2, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // UI Overlay (Score & Timer)
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 18px Segoe UI";
+            ctx.fillText("🪙 Score: " + score, 20, 30);
+            ctx.fillText("⏳ Time: " + timeLeft + "s", canvas.width - 130, 30);
+
+            // Game Over Screen
+            if (gameOver) {
+                ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#f59e0b";
+                ctx.font = "bold 36px Segoe UI";
+                ctx.fillText("TIME'S UP!", 280, 210);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "22px Segoe UI";
+                ctx.fillText("Final Score: " + score + " points", 275, 260);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Auto focus canvas on start
+        setTimeout(() => canvas.focus(), 200);
+        gameLoop();
+    </script>
+</body>
+</html>
+"""
+arcade_html ="""
+<style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            text-align: center;
+            user-select: none;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #38bdf8 0%, #0284c7 25%, #0369a1 60%, #0c4a6e 100%);
+            border: 3px solid #0284c7;
+            border-radius: 12px;
+            display: block;
+            margin: 10px auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            outline: none;
+        }
+        .controls-hint {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .btn-restart {
+            background: #f59e0b;
+            color: #000;
+            font-weight: bold;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-restart:hover {
+            background: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls-hint">
+        💡 <b>Controls:</b> Move Boat: <b>[A / D]</b> or <b>[Left / Right Arrows]</b> | Drop/Reel Hook: <b>[SPACEBAR]</b> or <b>Click Canvas</b>
+    </div>
+
+    <canvas id="fishCanvas" width="750" height="480" tabindex="1"></canvas>
+    <button class="btn-restart" onclick="resetGame()">🔄 Reset Game</button>
+
+    <script>
+        const canvas = document.getElementById("fishCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Game Variables
+        let score = 0;
+        let timeLeft = 60;
+        let gameOver = false;
+        let keys = {};
+
+        // Boat Properties
+        const boat = {
+            x: 340,
+            y: 40,
+            width: 70,
+            height: 20,
+            speed: 5
+        };
+
+        // Hook / Line Properties
+        const hook = {
+            x: 375,
+            y: 60,
+            startY: 60,
+            length: 0,
+            maxDepth: 420,
+            speed: 6,
+            state: "idle", // "idle", "dropping", "reeling"
+            caughtFish: null
+        };
+
+        // Fish Types & Spawning
+        const fishTypes = [
+            { name: "Small Fry", color: "#facc15", size: 14, speed: 2.5, points: 10 },
+            { name: "Bass", color: "#f97316", size: 20, speed: 1.8, points: 20 },
+            { name: "Rare Blue", color: "#a855f7", size: 26, speed: 3.0, points: 50 },
+            { name: "Golden Fish", color: "#ef4444", size: 18, speed: 3.5, points: 100 }
+        ];
+
+        let fishes = [];
+
+        function spawnFish() {
+            if (fishes.length < 8) {
+                const type = fishTypes[Math.floor(Math.random() * fishTypes.length)];
+                const dir = Math.random() < 0.5 ? 1 : -1;
+                fishes.push({
+                    x: dir === 1 ? -30 : canvas.width + 30,
+                    y: 110 + Math.random() * 320,
+                    dir: dir,
+                    ...type
+                });
+            }
+        }
+
+        // Input Handlers
+        window.addEventListener("keydown", e => { 
+            keys[e.key] = true; 
+            if (e.key === " " || e.code === "Space") {
+                e.preventDefault();
+                triggerHook();
+            }
+        });
+
+        window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+        canvas.addEventListener("click", function() {
+            canvas.focus();
+            triggerHook();
+        });
+
+        function triggerHook() {
+            if (gameOver) return;
+            if (hook.state === "idle") {
+                hook.state = "dropping";
+            } else if (hook.state === "dropping") {
+                hook.state = "reeling";
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            timeLeft = 60;
+            gameOver = false;
+            fishes = [];
+            hook.state = "idle";
+            hook.y = hook.startY;
+            hook.caughtFish = null;
+            boat.x = 340;
+            canvas.focus();
+        }
+
+        // Timer Interval
+        setInterval(() => {
+            if (!gameOver && timeLeft > 0) {
+                timeLeft--;
+                if (timeLeft === 0) gameOver = true;
+            }
+        }, 1000);
+
+        // Main Loop
+        function update() {
+            if (!gameOver) {
+                // Move Boat (only when hook is idle)
+                if (hook.state === "idle") {
+                    if ((keys["ArrowLeft"] || keys["a"] || keys["A"]) && boat.x > 10) {
+                        boat.x -= boat.speed;
+                    }
+                    if ((keys["ArrowRight"] || keys["d"] || keys["D"]) && boat.x < canvas.width - boat.width - 10) {
+                        boat.x += boat.speed;
+                    }
+                    hook.x = boat.x + boat.width / 2;
+                }
+
+                // Handle Hook Drop & Reel
+                if (hook.state === "dropping") {
+                    hook.y += hook.speed;
+                    if (hook.y >= hook.maxDepth) {
+                        hook.state = "reeling";
+                    }
+                } else if (hook.state === "reeling") {
+                    hook.y -= hook.speed;
+                    if (hook.caughtFish) {
+                        hook.caughtFish.x = hook.x;
+                        hook.caughtFish.y = hook.y + 10;
+                    }
+                    if (hook.y <= hook.startY) {
+                        hook.state = "idle";
+                        hook.y = hook.startY;
+                        if (hook.caughtFish) {
+                            score += hook.caughtFish.points;
+                            hook.caughtFish = null;
+                        }
+                    }
+                }
+
+                // Update Fish Positions
+                fishes.forEach((f, idx) => {
+                    if (f !== hook.caughtFish) {
+                        f.x += f.speed * f.dir;
+                    }
+
+                    // Check Collision with Hook
+                    if (hook.state === "dropping" && !hook.caughtFish) {
+                        let dist = Math.hypot(hook.x - f.x, hook.y - f.y);
+                        if (dist < f.size + 8) {
+                            hook.caughtFish = f;
+                            hook.state = "reeling";
+                        }
+                    }
+
+                    // Remove Out of Bounds Fish
+                    if ((f.dir === 1 && f.x > canvas.width + 50) || (f.dir === -1 && f.x < -50)) {
+                        if (f !== hook.caughtFish) fishes.splice(idx, 1);
+                    }
+                });
+
+                spawnFish();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Sky & Water surface line
+            ctx.fillStyle = "#38bdf8";
+            ctx.fillRect(0, 0, canvas.width, 50);
+            ctx.fillStyle = "#0284c7";
+            ctx.fillRect(0, 50, canvas.width, 4);
+
+            // Draw Boat
+            ctx.fillStyle = "#78350f";
+            ctx.beginPath();
+            ctx.moveTo(boat.x, boat.y);
+            ctx.lineTo(boat.x + boat.width, boat.y);
+            ctx.lineTo(boat.x + boat.width - 12, boat.y + boat.height);
+            ctx.lineTo(boat.x + 12, boat.y + boat.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw Fisherman / Stick
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(boat.x + 35, boat.y - 10);
+            ctx.lineTo(boat.x + 35, boat.y);
+            ctx.stroke();
+
+            // Draw Fishing Line
+            ctx.strokeStyle = "#e2e8f0";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(hook.x, hook.startY);
+            ctx.lineTo(hook.x, hook.y);
+            ctx.stroke();
+
+            // Draw Hook
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(hook.x - 4, hook.y, 4, 0, Math.PI);
+            ctx.stroke();
+
+            // Draw Fishes
+            fishes.forEach(f => {
+                ctx.fillStyle = f.color;
+                ctx.beginPath();
+                ctx.ellipse(f.x, f.y, f.size, f.size / 1.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Tail
+                ctx.beginPath();
+                let tailX = f.x - (f.size * f.dir);
+                ctx.moveTo(tailX, f.y);
+                ctx.lineTo(tailX - (8 * f.dir), f.y - 6);
+                ctx.lineTo(tailX - (8 * f.dir), f.y + 6);
+                ctx.closePath();
+                ctx.fill();
+
+                // Eye
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(f.x + (f.size / 2 * f.dir), f.y - 2, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // UI Overlay (Score & Timer)
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 18px Segoe UI";
+            ctx.fillText("🪙 Score: " + score, 20, 30);
+            ctx.fillText("⏳ Time: " + timeLeft + "s", canvas.width - 130, 30);
+
+            // Game Over Screen
+            if (gameOver) {
+                ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#f59e0b";
+                ctx.font = "bold 36px Segoe UI";
+                ctx.fillText("TIME'S UP!", 280, 210);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "22px Segoe UI";
+                ctx.fillText("Final Score: " + score + " points", 275, 260);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Auto focus canvas on start
+        setTimeout(() => canvas.focus(), 200);
+        gameLoop();
+
     </script>
 </body>
 </html>
