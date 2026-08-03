@@ -107,6 +107,20 @@ class Dragon:
         self.hp = hp
         self.attack = attack
 
+
+# ==============================================================================
+# 🧠 LESSON REQUIREMENT 1: OOP CLASSES
+# ==============================================================================
+
+class Dragon:
+    """OOP Class representing a Dragon object."""
+    def __init__(self, name, element, hp, attack):
+        self.name = name
+        self.element = element
+        self.hp = hp
+        self.attack = attack
+
+
 class Player:
     """OOP Class representing Global Player State."""
     def __init__(self):
@@ -510,5 +524,5 @@ arcade_html = """
 </body>
 </html>
 """
-
 components.html(arcade_html, height=520)
+
