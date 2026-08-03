@@ -99,6 +99,24 @@ arcade_html = """
         .btn:hover { 
             background: #fde047; 
         }
+        .farm-toolbar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .farm-btn {
+            background: #f59e0b;
+            color: #000;
+            font-weight: bold;
+            padding: 6px 12px;
+            border: 2px solid #b45309;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .farm-btn:hover { background: #fbbf24; }
+        .farm-btn.active { background: #22c55e; color: white; border-color: #15803d; }
     </style>
 </head>
 <body>
@@ -110,7 +128,7 @@ arcade_html = """
         <div class="game-card" onclick="startGame('ox')">❌⭕<br><b>OX Tic-Tac-Toe</b><br><small>Play vs AI</small></div>
         <div class="game-card" onclick="startGame('candy')">🍬<br><b>Candy Match</b><br><small>Tap Matching Pair</small></div>
         <div class="game-card" onclick="startGame('imposter')">🕵️<br><b>Guess Imposter</b><br><small>Find Suspicious</small></div>
-        <div class="game-card" onclick="startGame('dragon')">🐉<br><b>Dragon Arena</b><br><small>Boss Battle</small></div>
+        <div class="game-card" onclick="startGame('hayday')">🌾<br><b>Mini Hay Day</b><br><small>Farming Simulator</small></div>
         <div class="game-card" onclick="startGame('Fish')">🎣<br><b>Fish Catcher</b><br><small>Deep Sea Fishing</small></div>
         <div class="game-card" onclick="startGame('puzzle')">🧩<br><b>Math Puzzle</b><br><small>Logic Solver</small></div>
     </div>
@@ -118,6 +136,12 @@ arcade_html = """
     <!-- CANVAS GAME VIEW -->
     <div id="game-view" style="display: none;">
         <button class="btn" onclick="showMenu()">⬅️ Back to Arcade Menu</button>
+        <div id="hayday-toolbar" class="farm-toolbar" style="display: none;">
+            <button id="fbtn-wheat" class="farm-btn active" onclick="selectFarmTool('wheat')">🌾 Wheat (Free)</button>
+            <button id="fbtn-corn" class="farm-btn" onclick="selectFarmTool('corn')">🌽 Corn (5 Coins)</button>
+            <button id="fbtn-harvest" class="farm-btn" onclick="selectFarmTool('harvest')">🚜 Harvest</button>
+            <button id="fbtn-sell" class="farm-btn" onclick="sellCrops()">💰 Sell Silo</button>
+        </div>
         <canvas id="gameCanvas" width="750" height="420" tabindex="1"></canvas>
     </div>
 
@@ -179,10 +203,47 @@ arcade_html = """
         let tiles = { falling: [], score: 0 };
         let oxBoard = ["", "", "", "", "", "", "", "", ""];
         let imposterPos = Math.floor(Math.random() * 4);
-        let dragonHp = 100;
         let candyItems = ["🍬", "🍭", "🍬", "🍫"];
         let candySelected = -1;
         let candyScore = 0;
+
+        // Hay Day Farm State
+        let farmCoins = 20;
+        let selectedFarmTool = 'wheat';
+        let silo = { wheat: 0, corn: 0 };
+        const gridCols = 4, gridRows = 3;
+        const tileWidth = 100, tileHeight = 65;
+        const startX = 175, startY = 90;
+        let plots = [];
+        for (let r = 0; r < gridRows; r++) {
+            for (let c = 0; c < gridCols; c++) {
+                plots.push({
+                    x: startX + c * (tileWidth + 12),
+                    y: startY + r * (tileHeight + 12),
+                    state: 'empty', crop: null, growthProgress: 0
+                });
+            }
+        }
+
+        function selectFarmTool(tool) {
+            selectedFarmTool = tool;
+            document.querySelectorAll('.farm-btn').forEach(b => b.classList.remove('active'));
+            if (tool === 'wheat') document.getElementById('fbtn-wheat').classList.add('active');
+            if (tool === 'corn') document.getElementById('fbtn-corn').classList.add('active');
+            if (tool === 'harvest') document.getElementById('fbtn-harvest').classList.add('active');
+        }
+
+        function sellCrops() {
+            let earnings = (silo.wheat * 3) + (silo.corn * 12);
+            if (earnings > 0) {
+                farmCoins += earnings;
+                playSound(880, 0.2);
+                alert("Sold crops for " + earnings + " coins!");
+                silo.wheat = 0; silo.corn = 0;
+            } else {
+                alert("Silo is empty! Harvest crops first.");
+            }
+        }
 
         // Deep Fishing Game State
         let fishScore = 0;
@@ -227,10 +288,10 @@ arcade_html = """
             currentGame = name;
             document.getElementById("menu-grid").style.display = "none";
             document.getElementById("game-view").style.display = "block";
+            document.getElementById("hayday-toolbar").style.display = (name === 'hayday') ? "flex" : "none";
             setTimeout(() => canvas.focus(), 100);
 
             if (name === 'ox') oxBoard = ["", "", "", "", "", "", "", "", ""];
-            if (name === 'dragon') dragonHp = 100;
             if (name === 'candy') shuffleCandies();
             if (name === 'racer') racer = { x: 100, y: 200, score: 0, coins: [{x: 400, y: 150}, {x: 600, y: 250}], obs: [{x: 750, y: 200, spd: 4}] };
             if (name === 'tiles') tiles = { falling: [], score: 0 };
@@ -252,6 +313,7 @@ arcade_html = """
 
         function showMenu() {
             currentGame = "";
+            document.getElementById("hayday-toolbar").style.display = "none";
             if(fishTimerInterval) clearInterval(fishTimerInterval);
             document.getElementById("menu-grid").style.display = "grid";
             document.getElementById("game-view").style.display = "none";
@@ -304,16 +366,22 @@ arcade_html = """
                         }
                     }
                 }
-            } else if (currentGame === 'dragon') {
-                if (mx > 275 && mx < 475 && my > 280 && my < 340) {
-                    dragonHp -= 20;
-                    playSound(400, 0.1);
-                    if (dragonHp <= 0) {
-                        playSound(880, 0.3);
-                        alert("🐉 Dragon Defeated!");
-                        dragonHp = 100;
+            } else if (currentGame === 'hayday') {
+                plots.forEach(plot => {
+                    if (mx > plot.x && mx < plot.x + tileWidth && my > plot.y && my < plot.y + tileHeight) {
+                        if (selectedFarmTool === 'wheat' && plot.state === 'empty') {
+                            plot.state = 'growing'; plot.crop = 'wheat'; plot.growthProgress = 0; playSound(400, 0.1);
+                        } else if (selectedFarmTool === 'corn' && plot.state === 'empty') {
+                            if (farmCoins >= 5) {
+                                farmCoins -= 5; plot.state = 'growing'; plot.crop = 'corn'; plot.growthProgress = 0; playSound(450, 0.1);
+                            } else {
+                                alert("Not enough coins for Corn!");
+                            }
+                        } else if (selectedFarmTool === 'harvest' && plot.state === 'ready') {
+                            silo[plot.crop]++; plot.state = 'empty'; plot.crop = null; plot.growthProgress = 0; playSound(600, 0.1);
+                        }
                     }
-                }
+                });
             } else if (currentGame === 'Fish') {
                 triggerHook();
             } else if (currentGame === 'puzzle') {
@@ -411,13 +479,47 @@ arcade_html = """
                     ctx.fillRect(90 + i * 150, 140, 110, 110);
                 }
 
-            // 6. DRAGON ARENA
-            } else if (currentGame === 'dragon') {
-                ctx.fillStyle = "#ffffff"; ctx.font = "22px Arial";
-                ctx.fillText("🐉 Dragon Boss HP: " + dragonHp, 280, 50);
-                ctx.fillStyle = "#ef4444"; ctx.fillRect(200, 80, dragonHp * 3.5, 25);
-                ctx.fillStyle = "#22c55e"; ctx.fillRect(275, 280, 200, 60);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px Arial"; ctx.fillText("ATTACK!", 330, 318);
+            // 6. MINI HAY DAY FARM SIMULATOR
+            } else if (currentGame === 'hayday') {
+                // Update growth progress
+                plots.forEach(plot => {
+                    if (plot.state === 'growing') {
+                        let rate = plot.crop === 'wheat' ? 2 : 1;
+                        plot.growthProgress += rate;
+                        if (plot.growthProgress >= 100) {
+                            plot.growthProgress = 100;
+                            plot.state = 'ready';
+                        }
+                    }
+                });
+
+                ctx.fillStyle = "#166534"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Stats Dashboard overlay
+                ctx.fillStyle = "#fef08a"; ctx.font = "bold 16px Segoe UI";
+                ctx.fillText("🪙 Coins: " + farmCoins, 120, 28);
+                ctx.fillText("🌾 Wheat: " + silo.wheat, 360, 28);
+                ctx.fillText("🌽 Corn: " + silo.corn, 560, 28);
+
+                // Draw plots
+                plots.forEach(plot => {
+                    ctx.fillStyle = "#78350f"; ctx.fillRect(plot.x, plot.y, tileWidth, tileHeight);
+                    ctx.strokeStyle = "#451a03"; ctx.lineWidth = 2; ctx.strokeRect(plot.x, plot.y, tileWidth, tileHeight);
+
+                    if (plot.state === 'growing') {
+                        ctx.fillStyle = "#22c55e";
+                        let size = (plot.growthProgress / 100) * 26;
+                        ctx.beginPath(); ctx.arc(plot.x + tileWidth/2, plot.y + tileHeight/2, size/2, 0, Math.PI*2); ctx.fill();
+                        
+                        // Progress bar
+                        ctx.fillStyle = "#000"; ctx.fillRect(plot.x + 10, plot.y + tileHeight - 12, tileWidth - 20, 5);
+                        ctx.fillStyle = "#eab308"; ctx.fillRect(plot.x + 10, plot.y + tileHeight - 12, ((tileWidth - 20) * plot.growthProgress) / 100, 5);
+                    } else if (plot.state === 'ready') {
+                        ctx.font = "28px Segoe UI";
+                        let icon = plot.crop === 'wheat' ? '🌾' : '🌽';
+                        ctx.fillText(icon, plot.x + tileWidth/2 - 14, plot.y + tileHeight/2 + 10);
+                    }
+                });
 
             // 7. FISH CATCHER (DEEP SEA ENGINE)
             } else if (currentGame === 'Fish') {
