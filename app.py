@@ -104,6 +104,7 @@ arcade_html = """
             justify-content: center;
             gap: 8px;
             margin-bottom: 6px;
+            flex-wrap: wrap;
         }
         .farm-btn {
             background: #f59e0b;
@@ -139,7 +140,9 @@ arcade_html = """
         <div id="hayday-toolbar" class="farm-toolbar" style="display: none;">
             <button id="fbtn-wheat" class="farm-btn active" onclick="selectFarmTool('wheat')">🌾 Wheat (Free)</button>
             <button id="fbtn-corn" class="farm-btn" onclick="selectFarmTool('corn')">🌽 Corn (5 Coins)</button>
+            <button id="fbtn-carrot" class="farm-btn" onclick="selectFarmTool('carrot')">🥕 Carrot (12 Coins)</button>
             <button id="fbtn-harvest" class="farm-btn" onclick="selectFarmTool('harvest')">🚜 Harvest</button>
+            <button id="fbtn-expand" class="farm-btn" onclick="expandFarm()">🪵 Expand Plot (50 Coins)</button>
             <button id="fbtn-sell" class="farm-btn" onclick="sellCrops()">💰 Sell Silo</button>
         </div>
         <canvas id="gameCanvas" width="750" height="420" tabindex="1"></canvas>
@@ -207,41 +210,74 @@ arcade_html = """
         let candySelected = -1;
         let candyScore = 0;
 
-        // Hay Day Farm State
-        let farmCoins = 20;
+        // --- UPDATED HAY DAY ENGINE STATE ---
+        let farmCoins = 30;
         let selectedFarmTool = 'wheat';
-        let silo = { wheat: 0, corn: 0 };
-        const gridCols = 4, gridRows = 3;
-        const tileWidth = 100, tileHeight = 65;
-        const startX = 175, startY = 90;
-        let plots = [];
-        for (let r = 0; r < gridRows; r++) {
-            for (let c = 0; c < gridCols; c++) {
-                plots.push({
-                    x: startX + c * (tileWidth + 12),
-                    y: startY + r * (tileHeight + 12),
-                    state: 'empty', crop: null, growthProgress: 0
-                });
+        let silo = { wheat: 0, corn: 0, carrot: 0 };
+        let landPlots = [];
+
+        function initHayDay() {
+            landPlots = [];
+            let initialCols = 3, initialRows = 2;
+            let tileW = 90, tileH = 60;
+            let originX = 180, originY = 120;
+
+            for (let r = 0; r < initialRows; r++) {
+                for (let c = 0; c < initialCols; c++) {
+                    landPlots.push({
+                        x: originX + c * (tileW + 15),
+                        y: originY + r * (tileH + 15),
+                        w: tileW,
+                        h: tileH,
+                        state: 'empty',
+                        crop: null,
+                        growthProgress: 0
+                    });
+                }
             }
         }
 
         function selectFarmTool(tool) {
             selectedFarmTool = tool;
             document.querySelectorAll('.farm-btn').forEach(b => b.classList.remove('active'));
-            if (tool === 'wheat') document.getElementById('fbtn-wheat').classList.add('active');
-            if (tool === 'corn') document.getElementById('fbtn-corn').classList.add('active');
-            if (tool === 'harvest') document.getElementById('fbtn-harvest').classList.add('active');
+            if (document.getElementById('fbtn-' + tool)) {
+                document.getElementById('fbtn-' + tool).classList.add('active');
+            }
+        }
+
+        function expandFarm() {
+            if (farmCoins >= 50) {
+                farmCoins -= 50;
+                playSound(700, 0.2);
+                let tileW = 90, tileH = 60;
+                let lastPlot = landPlots[landPlots.length - 1];
+                let nextX = lastPlot.x + tileW + 15;
+                let nextY = lastPlot.y;
+
+                if (nextX > canvas.width - tileW - 40) {
+                    nextX = 180;
+                    nextY = lastPlot.y + tileH + 15;
+                }
+
+                landPlots.push({
+                    x: nextX, y: nextY, w: tileW, h: tileH,
+                    state: 'empty', crop: null, growthProgress: 0
+                });
+                alert("🎉 New Land Plot Unlocked!");
+            } else {
+                alert("❌ Need 50 Coins to expand land!");
+            }
         }
 
         function sellCrops() {
-            let earnings = (silo.wheat * 3) + (silo.corn * 12);
+            let earnings = (silo.wheat * 4) + (silo.corn * 15) + (silo.carrot * 35);
             if (earnings > 0) {
                 farmCoins += earnings;
-                playSound(880, 0.2);
-                alert("Sold crops for " + earnings + " coins!");
-                silo.wheat = 0; silo.corn = 0;
+                playSound(880, 0.25);
+                alert("💰 Sold all crops for " + earnings + " coins!");
+                silo.wheat = 0; silo.corn = 0; silo.carrot = 0;
             } else {
-                alert("Silo is empty! Harvest crops first.");
+                alert("🌾 Silo is empty! Harvest crops first.");
             }
         }
 
@@ -295,6 +331,7 @@ arcade_html = """
             if (name === 'candy') shuffleCandies();
             if (name === 'racer') racer = { x: 100, y: 200, score: 0, coins: [{x: 400, y: 150}, {x: 600, y: 250}], obs: [{x: 750, y: 200, spd: 4}] };
             if (name === 'tiles') tiles = { falling: [], score: 0 };
+            if (name === 'hayday') initHayDay();
             
             if (name === 'Fish') {
                 fishScore = 0; fishTimeLeft = 60; fishGameOver = false;
@@ -367,18 +404,22 @@ arcade_html = """
                     }
                 }
             } else if (currentGame === 'hayday') {
-                plots.forEach(plot => {
-                    if (mx > plot.x && mx < plot.x + tileWidth && my > plot.y && my < plot.y + tileHeight) {
-                        if (selectedFarmTool === 'wheat' && plot.state === 'empty') {
-                            plot.state = 'growing'; plot.crop = 'wheat'; plot.growthProgress = 0; playSound(400, 0.1);
-                        } else if (selectedFarmTool === 'corn' && plot.state === 'empty') {
-                            if (farmCoins >= 5) {
-                                farmCoins -= 5; plot.state = 'growing'; plot.crop = 'corn'; plot.growthProgress = 0; playSound(450, 0.1);
-                            } else {
-                                alert("Not enough coins for Corn!");
+                landPlots.forEach(plot => {
+                    if (mx > plot.x && mx < plot.x + plot.w && my > plot.y && my < plot.y + plot.h) {
+                        if (plot.state === 'empty') {
+                            if (selectedFarmTool === 'wheat') {
+                                plot.state = 'growing'; plot.crop = 'wheat'; plot.growthProgress = 0; playSound(400, 0.1);
+                            } else if (selectedFarmTool === 'corn') {
+                                if (farmCoins >= 5) {
+                                    farmCoins -= 5; plot.state = 'growing'; plot.crop = 'corn'; plot.growthProgress = 0; playSound(450, 0.1);
+                                } else { alert("Not enough coins for Corn!"); }
+                            } else if (selectedFarmTool === 'carrot') {
+                                if (farmCoins >= 12) {
+                                    farmCoins -= 12; plot.state = 'growing'; plot.crop = 'carrot'; plot.growthProgress = 0; playSound(520, 0.1);
+                                } else { alert("Not enough coins for Carrot!"); }
                             }
                         } else if (selectedFarmTool === 'harvest' && plot.state === 'ready') {
-                            silo[plot.crop]++; plot.state = 'empty'; plot.crop = null; plot.growthProgress = 0; playSound(600, 0.1);
+                            silo[plot.crop]++; plot.state = 'empty'; plot.crop = null; plot.growthProgress = 0; playSound(650, 0.12);
                         }
                     }
                 });
@@ -479,13 +520,15 @@ arcade_html = """
                     ctx.fillRect(90 + i * 150, 140, 110, 110);
                 }
 
-            // 6. MINI HAY DAY FARM SIMULATOR
+            // 6. MINI HAY DAY FARM SIMULATOR (UPDATED RENDER ENGINE)
             } else if (currentGame === 'hayday') {
-                // Update growth progress
-                plots.forEach(plot => {
+                ctx.fillStyle = "#15803d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Update Plot Growth
+                landPlots.forEach(plot => {
                     if (plot.state === 'growing') {
-                        let rate = plot.crop === 'wheat' ? 2 : 1;
-                        plot.growthProgress += rate;
+                        let speed = plot.crop === 'wheat' ? 1.8 : (plot.crop === 'corn' ? 1.0 : 0.6);
+                        plot.growthProgress += speed;
                         if (plot.growthProgress >= 100) {
                             plot.growthProgress = 100;
                             plot.state = 'ready';
@@ -493,33 +536,32 @@ arcade_html = """
                     }
                 });
 
-                ctx.fillStyle = "#166534"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Stats Dashboard overlay
-                ctx.fillStyle = "#fef08a"; ctx.font = "bold 16px Segoe UI";
-                ctx.fillText("🪙 Coins: " + farmCoins, 120, 28);
-                ctx.fillText("🌾 Wheat: " + silo.wheat, 360, 28);
-                ctx.fillText("🌽 Corn: " + silo.corn, 560, 28);
-
-                // Draw plots
-                plots.forEach(plot => {
-                    ctx.fillStyle = "#78350f"; ctx.fillRect(plot.x, plot.y, tileWidth, tileHeight);
-                    ctx.strokeStyle = "#451a03"; ctx.lineWidth = 2; ctx.strokeRect(plot.x, plot.y, tileWidth, tileHeight);
+                // Render Land Plots
+                landPlots.forEach(plot => {
+                    ctx.fillStyle = "#78350f";
+                    ctx.fillRect(plot.x, plot.y, plot.w, plot.h);
+                    ctx.strokeStyle = "#451a03"; ctx.lineWidth = 3;
+                    ctx.strokeRect(plot.x, plot.y, plot.w, plot.h);
 
                     if (plot.state === 'growing') {
                         ctx.fillStyle = "#22c55e";
-                        let size = (plot.growthProgress / 100) * 26;
-                        ctx.beginPath(); ctx.arc(plot.x + tileWidth/2, plot.y + tileHeight/2, size/2, 0, Math.PI*2); ctx.fill();
-                        
-                        // Progress bar
-                        ctx.fillStyle = "#000"; ctx.fillRect(plot.x + 10, plot.y + tileHeight - 12, tileWidth - 20, 5);
-                        ctx.fillStyle = "#eab308"; ctx.fillRect(plot.x + 10, plot.y + tileHeight - 12, ((tileWidth - 20) * plot.growthProgress) / 100, 5);
+                        let progressSize = (plot.growthProgress / 100) * (plot.w - 30);
+                        ctx.fillRect(plot.x + 15, plot.y + plot.h / 2 - 5, progressSize, 10);
                     } else if (plot.state === 'ready') {
-                        ctx.font = "28px Segoe UI";
-                        let icon = plot.crop === 'wheat' ? '🌾' : '🌽';
-                        ctx.fillText(icon, plot.x + tileWidth/2 - 14, plot.y + tileHeight/2 + 10);
+                        ctx.font = "30px Segoe UI";
+                        let icon = plot.crop === 'wheat' ? '🌾' : (plot.crop === 'corn' ? '🌽' : '🥕');
+                        ctx.fillText(icon, plot.x + plot.w / 2 - 15, plot.y + plot.h / 2 + 10);
                     }
                 });
+
+                // Top Stats Dashboard
+                ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
+                ctx.fillRect(0, 0, canvas.width, 40);
+                ctx.fillStyle = "#fef08a"; ctx.font = "bold 15px Segoe UI";
+                ctx.fillText("🪙 Coins: " + farmCoins, 30, 26);
+                ctx.fillText("🌾 Wheat: " + silo.wheat, 200, 26);
+                ctx.fillText("🌽 Corn: " + silo.corn, 380, 26);
+                ctx.fillText("🥕 Carrot: " + silo.carrot, 560, 26);
 
             // 7. FISH CATCHER (DEEP SEA ENGINE)
             } else if (currentGame === 'Fish') {
