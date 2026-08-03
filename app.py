@@ -205,12 +205,30 @@ arcade_html = """
         let racer = { x: 100, y: 200, score: 0, coins: [{x: 400, y: 150}, {x: 600, y: 250}], obs: [{x: 750, y: 200, spd: 4}] };
         let tiles = { falling: [], score: 0 };
         let oxBoard = ["", "", "", "", "", "", "", "", ""];
-        let imposterPos = Math.floor(Math.random() * 4);
+        
+        // --- NEW ENHANCED GUESS IMPOSTER ENGINE STATE ---
+        let imposterGame = {
+            targetPos: Math.floor(Math.random() * 4),
+            score: 0,
+            streak: 0,
+            round: 1,
+            crewColors: ["#ef4444", "#3b82f6", "#22c55e", "#eab308"],
+            crewNames: ["Red", "Blue", "Green", "Yellow"],
+            twitchTimer: 0,
+            twitchIndex: -1
+        };
+
+        function resetImposterRound() {
+            imposterGame.targetPos = Math.floor(Math.random() * 4);
+            imposterGame.twitchTimer = 0;
+            imposterGame.twitchIndex = -1;
+        }
+
         let candyItems = ["🍬", "🍭", "🍬", "🍫"];
         let candySelected = -1;
         let candyScore = 0;
 
-        // --- UPDATED HAY DAY ENGINE STATE ---
+        // HAY DAY ENGINE STATE
         let farmCoins = 30;
         let selectedFarmTool = 'wheat';
         let silo = { wheat: 0, corn: 0, carrot: 0 };
@@ -331,6 +349,7 @@ arcade_html = """
             if (name === 'candy') shuffleCandies();
             if (name === 'racer') racer = { x: 100, y: 200, score: 0, coins: [{x: 400, y: 150}, {x: 600, y: 250}], obs: [{x: 750, y: 200, spd: 4}] };
             if (name === 'tiles') tiles = { falling: [], score: 0 };
+            if (name === 'imposter') { imposterGame.score = 0; imposterGame.streak = 0; imposterGame.round = 1; resetImposterRound(); }
             if (name === 'hayday') initHayDay();
             
             if (name === 'Fish') {
@@ -354,6 +373,44 @@ arcade_html = """
             if(fishTimerInterval) clearInterval(fishTimerInterval);
             document.getElementById("menu-grid").style.display = "grid";
             document.getElementById("game-view").style.display = "none";
+        }
+
+        // Helper to Draw Among Us Crewmate Avatars
+        function drawCrewmate(x, y, color, isSuspicious, isTwitching) {
+            let offsetX = isTwitching ? (Math.random() * 6 - 3) : 0;
+            let drawX = x + offsetX;
+
+            // Backpack
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(drawX - 12, y + 18, 16, 38, 6);
+            ctx.fill();
+            ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 3; ctx.stroke();
+
+            // Main Suit Body
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(drawX, y, 55, 65, [25, 25, 8, 8]);
+            ctx.fill(); ctx.stroke();
+
+            // Legs
+            ctx.beginPath();
+            ctx.roundRect(drawX + 5, y + 60, 18, 22, [0, 0, 8, 8]);
+            ctx.roundRect(drawX + 32, y + 60, 18, 22, [0, 0, 8, 8]);
+            ctx.fill(); ctx.stroke();
+
+            // Visor Glass
+            ctx.fillStyle = isSuspicious ? "#f87171" : "#38bdf8";
+            ctx.beginPath();
+            ctx.roundRect(drawX + 22, y + 14, 32, 22, 12);
+            ctx.fill();
+            ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 2.5; ctx.stroke();
+
+            // Visor Shine
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.beginPath();
+            ctx.ellipse(drawX + 38, y + 20, 7, 3, -Math.PI / 6, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         function handleCanvasClick(mx, my) {
@@ -390,16 +447,21 @@ arcade_html = """
                     }
                 }
             } else if (currentGame === 'imposter') {
+                // --- NEW CLICK HANDLER FOR IMPOSTER ---
                 for (let i = 0; i < 4; i++) {
-                    let rx = 90 + i * 150;
-                    if (mx > rx && mx < rx + 110 && my > 140 && my < 250) {
-                        if (i === imposterPos) {
-                            playSound(880, 0.2);
-                            alert("🎉 Correct! You found the Imposter!");
-                            imposterPos = Math.floor(Math.random() * 4);
+                    let rx = 80 + i * 160;
+                    if (mx > rx && mx < rx + 110 && my > 120 && my < 270) {
+                        if (i === imposterGame.targetPos) {
+                            playSound(880, 0.25);
+                            imposterGame.score += 25;
+                            imposterGame.streak++;
+                            imposterGame.round++;
+                            alert("🚨 EMERGENCY MEETING!\nCorrect! " + imposterGame.crewNames[i] + " was An Imposter!\n+25 Points!");
+                            resetImposterRound();
                         } else {
-                            playSound(150, 0.2);
-                            alert("❌ Innocent Crewmate!");
+                            playSound(150, 0.3);
+                            imposterGame.streak = 0;
+                            alert("❌ " + imposterGame.crewNames[i] + " was NOT An Imposter!\nStreak Reset!");
                         }
                     }
                 }
@@ -510,17 +572,50 @@ arcade_html = """
                     ctx.font = "50px Arial"; ctx.fillText(c, rx + 22, 198);
                 });
 
-            // 5. GUESS IMPOSTER
+            // 5. GUESS IMPOSTER (UPDATED GAME RENDERER)
             } else if (currentGame === 'imposter') {
-                ctx.fillStyle = "#ffffff"; ctx.font = "20px Arial";
-                ctx.fillText("🕵️ Tap the suspicious crewmate!", 230, 50);
-                let colors = ["#ef4444", "#3b82f6", "#22c55e", "#eab308"];
-                for (let i = 0; i < 4; i++) {
-                    ctx.fillStyle = colors[i];
-                    ctx.fillRect(90 + i * 150, 140, 110, 110);
+                // Header & Stats
+                ctx.fillStyle = "#38bdf8"; ctx.font = "bold 22px Segoe UI";
+                ctx.fillText("🕵️ GUESS THE IMPOSTER!", 250, 38);
+                
+                ctx.fillStyle = "#94a3b8"; ctx.font = "14px Segoe UI";
+                ctx.fillText("Watch carefully! The imposter occasionally twitches nervously...", 180, 62);
+
+                ctx.fillStyle = "#fef08a"; ctx.font = "bold 16px Segoe UI";
+                ctx.fillText("🏆 Score: " + imposterGame.score, 40, 95);
+                ctx.fillText("🔥 Streak: " + imposterGame.streak, 320, 95);
+                ctx.fillText("🚩 Round: " + imposterGame.round, 620, 95);
+
+                // Twitch Timer Logic for Imposter Clue
+                imposterGame.twitchTimer++;
+                if (imposterGame.twitchTimer % 80 === 0) {
+                    imposterGame.twitchIndex = imposterGame.targetPos;
+                } else if (imposterGame.twitchTimer % 80 === 18) {
+                    imposterGame.twitchIndex = -1;
                 }
 
-            // 6. MINI HAY DAY FARM SIMULATOR (UPDATED RENDER ENGINE)
+                // Render Crewmates
+                for (let i = 0; i < 4; i++) {
+                    let rx = 100 + i * 160;
+                    let ry = 140;
+
+                    // Platform pedestal
+                    ctx.fillStyle = "#1e293b";
+                    ctx.beginPath();
+                    ctx.ellipse(rx + 25, ry + 88, 45, 14, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2; ctx.stroke();
+
+                    // Character Avatar
+                    let isTwitching = (i === imposterGame.twitchIndex);
+                    drawCrewmate(rx, ry, imposterGame.crewColors[i], false, isTwitching);
+
+                    // Name Tag
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px Segoe UI";
+                    ctx.fillText(imposterGame.crewNames[i], rx + 8, ry + 125);
+                }
+
+            // 6. MINI HAY DAY FARM SIMULATOR
             } else if (currentGame === 'hayday') {
                 ctx.fillStyle = "#15803d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -563,7 +658,7 @@ arcade_html = """
                 ctx.fillText("🌽 Corn: " + silo.corn, 380, 26);
                 ctx.fillText("🥕 Carrot: " + silo.carrot, 560, 26);
 
-            // 7. FISH CATCHER (DEEP SEA ENGINE)
+            // 7. FISH CATCHER
             } else if (currentGame === 'Fish') {
                 if (!fishGameOver) {
                     if (hook.state === "idle") {
