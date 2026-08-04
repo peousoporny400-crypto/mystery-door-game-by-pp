@@ -1,128 +1,153 @@
+from dataclasses import dataclass, field
+from enum import Enum
 import re
+from typing import Any, Dict, Optional
+
+replace_numpy_placeholder = None
+import numpy as np
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Arcade Game Hub", page_icon="🕹️", layout="wide")
+# =============================================================================
+# CONSTANTS & CONFIGURATION
+# =============================================================================
+PAGE_TITLE = "Arcade Game Hub"
+PAGE_ICON = "🕹️"
+BASE_XP_PER_LEVEL = 100
 
-# ---------------------------------------------------------------------------
-# Global Streamlit theme (dark neon-arcade shell around the component)
-# ---------------------------------------------------------------------------
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+REGEX_PLAYER_TAG = r"^[A-Z][a-z]+$"
 
-    :root{
-        --hub-bg:#0A0C16;
-        --hub-panel:#12162A;
-        --hub-card:#181D35;
-        --hub-border:#2A3158;
-        --hub-cyan:#2DE2E6;
-        --hub-magenta:#FF3E9A;
-        --hub-gold:#FFC145;
-        --hub-text:#EDEFF7;
-        --hub-muted:#8891B5;
-    }
+CUSTOM_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
-    .stApp{
-        background:
-            radial-gradient(circle at 15% 0%, rgba(45,226,230,0.06), transparent 40%),
-            radial-gradient(circle at 85% 10%, rgba(255,62,154,0.06), transparent 40%),
-            var(--hub-bg);
-    }
-    section[data-testid="stSidebar"]{
-        background:linear-gradient(180deg, #0D1022, #0A0C16 70%);
-        border-right:1px solid var(--hub-border);
-    }
-    section[data-testid="stSidebar"] *{
-        font-family:'Space Grotesk', sans-serif;
-        color:var(--hub-text);
-    }
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3{
-        font-family:'Press Start 2P', monospace;
-        font-size:13px !important;
-        letter-spacing:0.5px;
-        color:var(--hub-cyan);
-        text-shadow:0 0 10px rgba(45,226,230,0.35);
-    }
-    section[data-testid="stSidebar"] [data-testid="stMetricValue"]{
-        font-family:'JetBrains Mono', monospace;
-        color:var(--hub-gold);
-    }
-    section[data-testid="stSidebar"] [data-testid="stMetricLabel"]{
-        color:var(--hub-muted);
-    }
-    section[data-testid="stSidebar"] input{
-        background:var(--hub-card) !important;
-        color:var(--hub-text) !important;
-        border:1px solid var(--hub-border) !important;
-        border-radius:8px !important;
-    }
-    .stApp h1{
-        font-family:'Press Start 2P', monospace;
-        font-size:22px;
-        color:var(--hub-text);
-        text-shadow:0 0 18px rgba(45,226,230,0.25);
-        letter-spacing:1px;
-    }
-    div[data-testid="stProgress"] > div > div{
-        background-image:linear-gradient(90deg, var(--hub-cyan), var(--hub-magenta)) !important;
-    }
-    div[data-testid="stProgress"]{
-        background:var(--hub-panel);
-        border-radius:999px;
-        border:1px solid var(--hub-border);
-        padding:2px;
-    }
-    hr{ border-color:var(--hub-border) !important; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+:root{
+    --hub-bg:#0A0C16;
+    --hub-panel:#12162A;
+    --hub-card:#181D35;
+    --hub-border:#2A3158;
+    --hub-cyan:#2DE2E6;
+    --hub-magenta:#FF3E9A;
+    --hub-gold:#FFC145;
+    --hub-text:#EDEFF7;
+    --hub-muted:#8891B5;
+}
 
-# ---------------------------------------------------------------------------
-# Session state
-# ---------------------------------------------------------------------------
-if "user" not in st.session_state:
-    st.session_state.user = {"username": "Captain", "level": 1, "xp": 40}
+.stApp{
+    background:
+        radial-gradient(circle at 15% 0%, rgba(45,226,230,0.06), transparent 40%),
+        radial-gradient(circle at 85% 10%, rgba(255,62,154,0.06), transparent 40%),
+        var(--hub-bg);
+}
+section[data-testid="stSidebar"]{
+    background:linear-gradient(180deg, #0D1022, #0A0C16 70%);
+    border-right:1px solid var(--hub-border);
+}
+section[data-testid="stSidebar"] *{
+    font-family:'Space Grotesk', sans-serif;
+    color:var(--hub-text);
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3{
+    font-family:'Press Start 2P', monospace;
+    font-size:13px !important;
+    letter-spacing:0.5px;
+    color:var(--hub-cyan);
+    text-shadow:0 0 10px rgba(45,226,230,0.35);
+}
+section[data-testid="stSidebar"] [data-testid="stMetricValue"]{
+    font-family:'JetBrains Mono', monospace;
+    color:var(--hub-gold);
+}
+section[data-testid="stSidebar"] [data-testid="stMetricLabel"]{
+    color:var(--hub-muted);
+}
+section[data-testid="stSidebar"] input{
+    background:var(--hub-card) !important;
+    color:var(--hub-text) !important;
+    border:1px solid var(--hub-border) !important;
+    border-radius:8px !important;
+}
+.stApp h1{
+    font-family:'Press Start 2P', monospace;
+    font-size:22px;
+    color:var(--hub-text);
+    text-shadow:0 0 18px rgba(45,226,230,0.25);
+    letter-spacing:1px;
+}
+div[data-testid="stProgress"] > div > div{
+    background-image:linear-gradient(90deg, var(--hub-cyan), var(--hub-magenta)) !important;
+}
+div[data-testid="stProgress"]{
+    background:var(--hub-panel);
+    border-radius:999px;
+    border:1px solid var(--hub-border);
+    padding:2px;
+}
+hr{ border-color:var(--hub-border) !important; }
+</style>
+"""
 
-user = st.session_state.user
 
-# ---------------------------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------------------------
-st.sidebar.title("🕹️ CONTROL PANEL")
-st.sidebar.subheader("🕵️ CREWMATE VERIFICATION")
-username_input = st.sidebar.text_input("Enter Player Tag:")
-if username_input:
-    if re.match(r"^[A-Z][a-z]+$", username_input):
-        st.sidebar.success(f"Welcome, {username_input}!")
-        st.session_state.user["username"] = username_input
-    else:
-        st.sidebar.warning("Tag must start with a capital letter, followed by lowercase letters.")
+# =============================================================================
+# MODELS & DATA STRUCTURES (OOP)
+# =============================================================================
+class TagValidationResult(Enum):
+    VALID = "VALID"
+    INVALID_FORMAT = "INVALID_FORMAT"
+    EMPTY = "EMPTY"
 
-st.sidebar.divider()
-st.sidebar.header("🏆 PLAYER STATS")
-st.sidebar.metric("Level", user["level"])
-st.sidebar.metric("XP", user["xp"])
-st.sidebar.divider()
-st.sidebar.caption("🔊 Mute, high scores and profile data are all managed inside the arcade panel below.")
 
-# ---------------------------------------------------------------------------
-# Header
-# ---------------------------------------------------------------------------
-st.title(f"👋 WELCOME BACK, {user['username'].upper()}")
-next_level_xp = user["level"] * 100
-xp_progress = min(1.0, user["xp"] / next_level_xp)
-st.progress(xp_progress, text=f"Level {user['level']} Progress ({user['xp']}/{next_level_xp} XP)")
-st.divider()
+@dataclass
+class UserProfile:
+    username: str = "Captain"
+    level: int = 1
+    xp: int = 40
 
-# ---------------------------------------------------------------------------
-# Arcade component (HTML/CSS/JS) — 8 playable mini-games
-# ---------------------------------------------------------------------------
-ARCADE_TEMPLATE = r"""
+    @property
+    def next_level_xp(self) -> int:
+        return self.level * BASE_XP_PER_LEVEL
+
+    @property
+    def xp_progress(self) -> float:
+        # Utilizing numpy for numeric clipping (as required)
+        return float(np.clip(self.xp / self.next_level_xp, 0.0, 1.0))
+
+    def to_df(self) -> pd.DataFrame:
+        """Exports user profile metrics to a Pandas DataFrame."""
+        return pd.DataFrame(
+            [
+                {
+                    "Metric": "Level",
+                    "Value": self.level,
+                },
+                {"Metric": "XP", "Value": self.xp},
+                {"Metric": "Next Level XP", "Value": self.next_level_xp},
+            ]
+        )
+
+
+class ProfileValidator:
+    """Uses Regex to validate player tag format."""
+
+    @staticmethod
+    def validate_username(username: str) -> TagValidationResult:
+        if not username:
+            return TagValidationResult.EMPTY
+        if re.match(REGEX_PLAYER_TAG, username):
+            return TagValidationResult.VALID
+        return TagValidationResult.INVALID_FORMAT
+
+
+# =============================================================================
+# ARCADE TEMPLATE MANAGER (OOP & Package Module Structure)
+# =============================================================================
+class ArcadeTemplateEngine:
+    """Handles HTML Template storage and dynamic variable substitution."""
+
+    RAW_TEMPLATE: str = r"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -360,11 +385,11 @@ ARCADE_TEMPLATE = r"""
   <!-- MENU -->
   <div id="menu-grid" class="grid-container">
     <div class="game-card" data-game="racer">
-      <span class="icon">🏎️</span><b>HILL CLIMB<br/>RACER</b><small>Drive &amp; Collect Coins</small>
+      <span class="icon">💨</span><b>DODGE &amp;<br/>COLLECT</b><small>Drive &amp; Collect Coins</small>
       <div class="best" data-best="racer">Best: 0</div>
     </div>
     <div class="game-card" data-game="tiles">
-      <span class="icon">🎵</span><b>TILES HOP</b><small>Press 1 · 2 · 3</small>
+      <span class="icon">🎹</span><b>TILES HOP</b><small>Press 1 · 2 · 3</small>
       <div class="best" data-best="tiles">Best: 0</div>
     </div>
     <div class="game-card" data-game="ox">
@@ -372,11 +397,11 @@ ARCADE_TEMPLATE = r"""
       <div class="best" data-best="ox">W-L-D: 0-0-0</div>
     </div>
     <div class="game-card" data-game="candy">
-      <span class="icon">🍬</span><b>CANDY MATCH</b><small>Tap Matching Pairs</small>
+      <span class="icon">🎴</span><b>MATCH PAIR</b><small>Tap Matching Pairs</small>
       <div class="best" data-best="candy">Best: 0</div>
     </div>
     <div class="game-card" data-game="imposter">
-      <span class="icon">🕵️</span><b>GUESS<br/>IMPOSTER</b><small>Find the Suspicious One</small>
+      <span class="icon">🎨</span><b>SPOT THE<br/>SHADE</b><small>Find the Suspicious One</small>
       <div class="best" data-best="imposter">Found: 0</div>
     </div>
     <div class="game-card" data-game="hayday">
@@ -1254,12 +1279,99 @@ ARCADE_TEMPLATE = r"""
 </html>
 """
 
-html = (
-    ARCADE_TEMPLATE
-    .replace("__USERNAME__", str(user["username"]))
-    .replace("__LEVEL__", str(user["level"]))
-    .replace("__XP__", str(user["xp"]))
-    .replace("__NEXT_XP__", str(next_level_xp))
-)
+    @classmethod
+    def render(cls, user_profile: UserProfile) -> str:
+        """Injects user properties into HTML string."""
+        return (
+            cls.RAW_TEMPLATE.replace("__USERNAME__", str(user_profile.username))
+            .replace("__LEVEL__", str(user_profile.level))
+            .replace("__XP__", str(user_profile.xp))
+            .replace("__NEXT_XP__", str(user_profile.next_level_xp))
+        )
 
-components.html(html, height=920, scrolling=True)
+
+# =============================================================================
+# STREAMLIT INTERFACE MANAGER (OOP)
+# =============================================================================
+class ArcadeApp:
+    def __init__(self) -> None:
+        st.set_page_config(
+            page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="wide"
+        )
+        self._init_session_state()
+
+    def _init_session_state(self) -> None:
+        """Initialize session state user with data class structure."""
+        if "user" not in st.session_state:
+            st.session_state.user = {"username": "Captain", "level": 1, "xp": 40}
+
+    def _get_user_profile(self) -> UserProfile:
+        u_data = st.session_state.user
+        return UserProfile(
+            username=u_data.get("username", "Captain"),
+            level=u_data.get("level", 1),
+            xp=u_data.get("xp", 40),
+        )
+
+    def render_sidebar(self, user_profile: UserProfile) -> None:
+        st.sidebar.title("🕹️ CONTROL PANEL")
+        st.sidebar.subheader("🕵️ CREWMATE VERIFICATION")
+
+        username_input = st.sidebar.text_input("Enter Player Tag:")
+        if username_input:
+            validation = ProfileValidator.validate_username(username_input)
+            if validation == TagValidationResult.VALID:
+                st.sidebar.success(f"Welcome, {username_input}!")
+                st.session_state.user["username"] = username_input
+                user_profile.username = username_input
+            elif validation == TagValidationResult.INVALID_FORMAT:
+                st.sidebar.warning(
+                    "Tag must start with a capital letter, followed by lowercase letters."
+                )
+
+        st.sidebar.divider()
+        st.sidebar.header("🏆 PLAYER STATS")
+
+        # Display Metrics using Pandas DataFrame calculations
+        stats_df = user_profile.to_df()
+        level_val = stats_df.loc[
+            stats_df["Metric"] == "Level", "Value"
+        ].values[0]
+        xp_val = stats_df.loc[stats_df["Metric"] == "XP", "Value"].values[0]
+
+        st.sidebar.metric("Level", int(level_val))
+        st.sidebar.metric("XP", int(xp_val))
+        st.sidebar.divider()
+        st.sidebar.caption(
+            "🔊 Mute, high scores and profile data are all managed inside the arcade panel below."
+        )
+
+    def render_body(self, user_profile: UserProfile) -> None:
+        st.title(f"👋 WELCOME BACK, {user_profile.username.upper()}")
+
+        # Progress computation
+        st.progress(
+            user_profile.xp_progress,
+            text=f"Level {user_profile.level} Progress ({user_profile.xp}/{user_profile.next_level_xp} XP)",
+        )
+        st.divider()
+
+        # Render Arcade Component
+        rendered_html = ArcadeTemplateEngine.render(user_profile)
+        components.html(rendered_html, height=920, scrolling=True)
+
+    def run(self) -> None:
+        # Load custom CSS
+        st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+        user_profile = self._get_user_profile()
+        self.render_sidebar(user_profile)
+        self.render_body(user_profile)
+
+
+# =============================================================================
+# ENTRY POINT
+# =============================================================================
+if __name__ == "__main__":
+    app = ArcadeApp()
+    app.run()
